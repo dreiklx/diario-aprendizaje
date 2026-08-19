@@ -600,6 +600,10 @@
   // — Arranque —
 
   renderBlocks();
+  // Sincroniza #blocks-json con el estado inicial de una vez: si no se
+  // hace acá, el campo oculto queda vacío hasta el primer cambio del
+  // usuario, y guardar sin tocar nada borraría todos los bloques.
+  syncBlocksJson();
   updatePreview();
   checkForExistingDraft();
 

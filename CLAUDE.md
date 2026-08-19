@@ -586,6 +586,19 @@ seguido con un commit real a `master` para que vuelvan a coincidir.
   resolvió el badge + enlace "Editar" al lado del link principal del
   timeline (sección 14-bis, sin anidar un `<a>` dentro de otro `<a>`,
   que es HTML inválido).
+- **⚠️ El campo oculto `#blocks-json` tiene que sincronizarse UNA VEZ al
+  cargar la página, no solo cuando el usuario edita algo.** Bug real,
+  encontrado probando el flujo completo contra producción: `editor.js`
+  solo escribía en `#blocks-json` desde `onStateChanged()`, disparado
+  por los listeners de cada campo — así que si alguien abría una entrada
+  YA con contenido y apretaba "Guardar y publicar" sin tocar nada (por
+  ejemplo, para revisar que se ve bien y guardar igual), el campo oculto
+  viajaba vacío y `sanitize_blocks_input([])` borraba todos los bloques
+  en silencio. Arreglo: `syncBlocksJson()` se llama una vez explícita en
+  el arranque (junto a `renderBlocks()`), no solo dentro de
+  `onStateChanged()`. Lección general: cualquier campo oculto que un JS
+  arma a partir de un estado en memoria necesita sincronizarse en el
+  arranque, no asumir que el primer `input` del usuario lo va a poblar.
 
 ## 12. Convenciones de nombres
 
