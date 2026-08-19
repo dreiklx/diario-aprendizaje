@@ -15,9 +15,10 @@ return [
     'campus'        => 'Sede del Caribe',
     'term'          => 'II Ciclo 2026',
 
-    // Nombre de quien escribe el diario. Déjalo en null para no mostrarlo
-    // en el sitio, o complétalo con tu nombre cuando quieras que aparezca.
-    'author'        => null,
+    // Nombre y carné de quien escribe el diario. Deja 'author' en null
+    // para no mostrar esta línea en el sitio.
+    'author'        => 'Derek Farley Noguera',
+    'student_id'    => 'C5F012',
 
     // Fecha ISO (YYYY-MM-DD) del lunes en que inicia la semana académica 1
     // (no la fecha de la primera clase — ver api/data/entries.php, campo

@@ -12,7 +12,15 @@
     <h1 class="hero__title reveal" style="transition-delay: 60ms">Diario de<br>Aprendizaje</h1>
     <p class="hero__course reveal" style="transition-delay: 120ms"><?= e($course['code']) ?> · <?= e($course['name']) ?></p>
     <p class="hero__subtitle reveal" style="transition-delay: 160ms"><?= e($course['subtitle']) ?></p>
-    <p class="hero__term reveal" style="transition-delay: 200ms"><?= e($course['term']) ?><?= $course['author'] ? ' · ' . e($course['author']) : '' ?></p>
+    <p class="hero__term reveal" style="transition-delay: 200ms"><?= e($course['term']) ?></p>
+    <?php if ($course['author']): ?>
+      <p class="hero__byline reveal" style="transition-delay: 220ms">
+        <span class="hero__byline-name"><?= e($course['author']) ?></span>
+        <?php if (!empty($course['student_id'])): ?>
+          <span class="hero__byline-id">Carné <?= e($course['student_id']) ?></span>
+        <?php endif; ?>
+      </p>
+    <?php endif; ?>
     <p class="hero__description reveal" style="transition-delay: 240ms"><?= e($course['description']) ?></p>
   </div>
 </section>
