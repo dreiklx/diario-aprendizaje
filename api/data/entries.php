@@ -88,9 +88,12 @@ return [
         'week' => 3,
         'week_start' => '2026-08-24',
         'class_date' => '2026-08-26',
-        'title' => null,
+        'title' => 'PRUEBA E2E — Semana 3 (se revierte)',
         'theme' => null,
-        'blocks' => [],
+        'blocks' => [
+            ['type' => 'heading', 'text' => "Prueba automatizada"],
+            ['type' => 'paragraph', 'text' => "Este contenido es una prueba end-to-end del editor y se revierte automaticamente."],
+        ],
     ],
     [
         'week' => 4,
