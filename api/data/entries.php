@@ -88,7 +88,7 @@ return [
         'week' => 3,
         'week_start' => '2026-08-24',
         'class_date' => '2026-08-26',
-        'title' => 'PRUEBA E2E — Semana 3 (se revierte',
+        'title' => null,
         'theme' => null,
         'blocks' => [],
     ],
