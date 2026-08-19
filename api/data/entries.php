@@ -57,7 +57,7 @@ return [
         'week' => 2,
         'week_start' => '2026-08-17',
         'class_date' => '2026-08-19',
-        'title' => null,
+        'title' => 'Prueba del editor (revertir)',
         'theme' => null,
         'reflexion' => null,
         'aprendizaje' => null,
