@@ -109,9 +109,24 @@ function is_editor_authenticated(): bool
 function require_editor_auth(): void
 {
     if (!is_editor_authenticated()) {
-        header('Location: /editar');
+        $next = (string) ($_SERVER['REQUEST_URI'] ?? '/editar');
+        header('Location: /editar?next=' . rawurlencode($next));
         exit;
     }
+}
+
+/**
+ * Solo acepta rutas propias del editor como destino de "volver después
+ * de iniciar sesión" — nunca una URL externa (protección básica contra
+ * open redirect vía el parámetro next).
+ */
+function sanitize_editor_next_path(?string $next): string
+{
+    if ($next === null || $next === '') {
+        return '/editar';
+    }
+
+    return preg_match('#^/editar(/semana/\d+)?$#', $next) ? $next : '/editar';
 }
 
 /**

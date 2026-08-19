@@ -1,5 +1,8 @@
 <?php
-/** @var string|null $loginError */
+/**
+ * @var string|null $loginError
+ * @var string $next
+ */
 ?>
 <section class="editor-login">
   <p class="editor__eyebrow">Acceso privado</p>
@@ -11,6 +14,7 @@
   <?php endif; ?>
 
   <form method="post" action="/editar" autocomplete="off">
+    <input type="hidden" name="next" value="<?= e($next ?? '/editar') ?>">
     <div class="editor-field">
       <label for="password">Contraseña</label>
       <input type="password" id="password" name="password" required autofocus>

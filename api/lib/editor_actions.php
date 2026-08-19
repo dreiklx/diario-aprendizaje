@@ -27,6 +27,7 @@ function handle_editor_home(array $course): void
             'pageDescription' => null,
             'private' => true,
             'loginError' => null,
+            'next' => sanitize_editor_next_path($_GET['next'] ?? null),
         ]);
 
         return;
@@ -44,10 +45,11 @@ function handle_editor_home(array $course): void
 function handle_editor_login_submit(array $course): void
 {
     $password = (string) ($_POST['password'] ?? '');
+    $next = sanitize_editor_next_path($_POST['next'] ?? null);
 
     if ($password !== '' && verify_editor_password($password)) {
         set_editor_cookie(issue_editor_session_token());
-        header('Location: /editar', true, 303);
+        header('Location: ' . $next, true, 303);
 
         return;
     }
@@ -63,6 +65,7 @@ function handle_editor_login_submit(array $course): void
         'pageDescription' => null,
         'private' => true,
         'loginError' => 'Contraseña incorrecta.',
+        'next' => $next,
     ]);
 }
 
@@ -143,34 +146,40 @@ function handle_editor_week_save(array $course, int $week): void
     }
 
     $sha = (string) ($_POST['sha'] ?? '');
-    $submitted = [
-        'title' => (string) ($_POST['title'] ?? ''),
-        'theme' => (string) ($_POST['theme'] ?? ''),
-        'reflexion' => (string) ($_POST['reflexion'] ?? ''),
-        'aprendizaje' => (string) ($_POST['aprendizaje'] ?? ''),
-        'cuestionamiento' => (string) ($_POST['cuestionamiento'] ?? ''),
-        'aplicacion' => (string) ($_POST['aplicacion'] ?? ''),
-    ];
+    $title = (string) ($_POST['title'] ?? '');
+    $theme = (string) ($_POST['theme'] ?? '');
 
-    foreach ($submitted as $field => $value) {
-        if (mb_strlen($value) > 4000) {
-            handle_editor_week_form($course, $week, null, 'El campo "' . $field . '" es demasiado largo.', $submitted);
+    if (mb_strlen($title) > 160 || mb_strlen($theme) > 200) {
+        handle_editor_week_form($course, $week, null, 'El título o el tema son demasiado largos.', null);
 
-            return;
-        }
+        return;
     }
+
+    $rawBlocks = json_decode((string) ($_POST['blocks_json'] ?? '[]'), true);
+
+    if (!is_array($rawBlocks)) {
+        handle_editor_week_form($course, $week, null, 'El contenido enviado no es válido. Recargá la página e intentá de nuevo.', null);
+
+        return;
+    }
+
+    // Nunca confiamos en la forma que manda el navegador: se vuelve a
+    // validar y recortar cada bloque server-side antes de guardar nada.
+    $sanitizedBlocks = sanitize_blocks_input($rawBlocks);
+
+    $formValues = ['title' => $title, 'theme' => $theme, 'blocks' => $sanitizedBlocks];
 
     try {
         $file = github_get_entries_file();
         $parsed = parse_entries_source($file['content']);
 
         if (find_entry_by_week($parsed['entries'], $week) === null) {
-            handle_editor_week_form($course, $week, null, 'Esa semana ya no existe en el archivo.', $submitted);
+            handle_editor_week_form($course, $week, null, 'Esa semana ya no existe en el archivo.', $formValues);
 
             return;
         }
 
-        $updatedEntries = apply_entry_edit($parsed['entries'], $week, $submitted);
+        $updatedEntries = apply_entry_edit($parsed['entries'], $week, $title, $theme, $sanitizedBlocks);
         $newSource = $parsed['preamble'] . format_entries_body($updatedEntries);
 
         $result = github_update_entries_file(
@@ -179,7 +188,7 @@ function handle_editor_week_save(array $course, int $week): void
             'Actualiza la reflexión de la semana ' . $week
         );
     } catch (GitHubApiException|EntriesParseException $e) {
-        handle_editor_week_form($course, $week, null, 'No se pudo guardar: ' . $e->getMessage(), $submitted);
+        handle_editor_week_form($course, $week, null, 'No se pudo guardar: ' . $e->getMessage(), $formValues);
 
         return;
     }
@@ -190,14 +199,14 @@ function handle_editor_week_save(array $course, int $week): void
             $week,
             null,
             'La entrada cambió en GitHub desde que abriste este formulario. Recargá la página y volvé a editar para no perder el otro cambio.',
-            $submitted
+            $formValues
         );
 
         return;
     }
 
     if (!$result['ok']) {
-        handle_editor_week_form($course, $week, null, 'GitHub rechazó el cambio (código ' . $result['status'] . ').', $submitted);
+        handle_editor_week_form($course, $week, null, 'GitHub rechazó el cambio (código ' . $result['status'] . ').', $formValues);
 
         return;
     }

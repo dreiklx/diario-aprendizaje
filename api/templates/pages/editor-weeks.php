@@ -10,14 +10,17 @@
   </header>
 
   <ol class="editor-weeks">
-    <?php foreach ($entries as $entry): $status = entry_status($entry); ?>
+    <?php foreach ($entries as $entry): $status = entry_status($entry); $hasContent = $status === STATUS_COMPLETADA; ?>
       <li>
         <a class="editor-weeks__item" href="/editar/semana/<?= (int) $entry['week'] ?>">
           <span class="editor-weeks__label">
             <span class="editor-weeks__number"><?= sprintf('%02d', $entry['week']) ?></span>
             <span><?= $entry['title'] ? e($entry['title']) : 'Reflexión pendiente' ?></span>
           </span>
-          <?= render_partial('partials/status-badge', ['status' => $status]) ?>
+          <span class="editor-weeks__meta">
+            <?= render_partial('partials/status-badge', ['status' => $status]) ?>
+            <span class="editor-weeks__action"><?= $hasContent ? 'Editar →' : '+ Agregar' ?></span>
+          </span>
         </a>
       </li>
     <?php endforeach; ?>

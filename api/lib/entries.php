@@ -1,6 +1,7 @@
 <?php
 
 require_once __DIR__ . '/dates.php';
+require_once __DIR__ . '/blocks.php';
 
 /**
  * Acceso y lógica de negocio sobre las entradas del diario. Todo el
@@ -45,7 +46,8 @@ function get_entry(int $week): ?array
 
 /**
  * Estado derivado de una entrada:
- * - completada: tiene contenido de reflexión.
+ * - completada: tiene al menos un bloque con contenido real (ver
+ *   entry_has_content() en blocks.php).
  * - disponible: la clase (class_date) ya ocurrió pero aún no se ha escrito.
  * - proxima: la clase todavía no ocurre.
  *
@@ -57,7 +59,7 @@ function entry_status(array $entry, ?string $today = null): string
 {
     $today ??= today_iso();
 
-    if (!empty(trim((string) ($entry['reflexion'] ?? '')))) {
+    if (entry_has_content($entry)) {
         return STATUS_COMPLETADA;
     }
 

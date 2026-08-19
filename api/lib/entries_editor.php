@@ -4,9 +4,9 @@
  * Lee y reescribe api/data/entries.php de forma quirúrgica: preserva el
  * docblock y todo lo que hay antes de "return [" tal cual, y regenera
  * solo el cuerpo del arreglo en el mismo estilo en que está escrito a
- * mano en el resto del proyecto (ver CLAUDE.md, "Cómo funciona el
- * editor"). Nunca usa var_export ni serializadores genéricos — eso
- * destruiría el formato y los comentarios.
+ * mano en el resto del proyecto (ver CLAUDE.md, "Editor privado").
+ * Nunca usa var_export ni serializadores genéricos — eso destruiría el
+ * formato y los comentarios.
  *
  * Sobre el eval(): el contenido que se parsea viene de GitHub, pero
  * SOLO de la ruta fija GITHUB_ENTRIES_PATH en GITHUB_REPO — el único
@@ -18,6 +18,8 @@
  * deployment, que es justamente el punto: evitar pisar una edición
  * hecha directamente en GitHub o desde otra pestaña del editor.
  */
+
+require_once __DIR__ . '/blocks.php';
 
 class EntriesParseException extends RuntimeException
 {
@@ -64,25 +66,65 @@ function php_double_quote_multiline(string $value): string
     return '"' . $escaped . '"';
 }
 
-function php_nullable_scalar(?string $value, bool $multiline): string
+function php_nullable_scalar(?string $value): string
 {
     if ($value === null || trim($value) === '') {
         return 'null';
     }
 
-    return $multiline ? php_double_quote_multiline($value) : php_single_quote($value);
+    return php_single_quote($value);
 }
 
-function format_evidencia_literal($evidencia): string
+/** Serializa un único bloque como literal de arreglo PHP, en una línea. */
+function format_block_literal(array $block): string
 {
-    if (!is_array($evidencia) || empty($evidencia['url'])) {
-        return 'null';
+    $type = (string) ($block['type'] ?? '');
+
+    switch ($type) {
+        case 'heading':
+        case 'paragraph':
+        case 'highlight':
+        case 'quote':
+            return "['type' => " . php_single_quote($type) . ", 'text' => " . php_double_quote_multiline((string) $block['text']) . ']';
+
+        case 'list':
+            $items = array_map(
+                fn ($item) => php_double_quote_multiline((string) $item),
+                $block['items']
+            );
+
+            return "['type' => 'list', 'style' => " . php_single_quote((string) $block['style']) . ", 'items' => [" . implode(', ', $items) . ']]';
+
+        case 'divider':
+            return "['type' => 'divider']";
+
+        case 'link':
+            return "['type' => 'link', 'text' => " . php_double_quote_multiline((string) $block['text']) . ", 'url' => " . php_single_quote((string) $block['url']) . ']';
+
+        case 'image':
+            return "['type' => 'image', 'url' => " . php_single_quote((string) $block['url'])
+                . ", 'alt' => " . php_double_quote_multiline((string) ($block['alt'] ?? ''))
+                . ", 'caption' => " . php_double_quote_multiline((string) ($block['caption'] ?? '')) . ']';
+
+        default:
+            // Inalcanzable si el bloque pasó por sanitize_blocks_input() antes.
+            return "['type' => 'paragraph', 'text' => '']";
+    }
+}
+
+function format_blocks_literal(array $blocks): string
+{
+    if (empty($blocks)) {
+        return '[]';
     }
 
-    $label = php_single_quote((string) ($evidencia['label'] ?? 'Ver evidencia'));
-    $url = php_single_quote((string) $evidencia['url']);
+    $out = "[\n";
 
-    return "['label' => {$label}, 'url' => {$url}]";
+    foreach ($blocks as $block) {
+        $out .= '            ' . format_block_literal($block) . ",\n";
+    }
+
+    return $out . '        ]';
 }
 
 /** Reconstruye "return [ ... ];" completo a partir del arreglo de entradas. */
@@ -95,47 +137,38 @@ function format_entries_body(array $entries): string
         $out .= "        'week' => " . (int) $entry['week'] . ",\n";
         $out .= "        'week_start' => " . php_single_quote((string) $entry['week_start']) . ",\n";
         $out .= "        'class_date' => " . php_single_quote((string) $entry['class_date']) . ",\n";
-        $out .= "        'title' => " . php_nullable_scalar($entry['title'] ?? null, false) . ",\n";
-        $out .= "        'theme' => " . php_nullable_scalar($entry['theme'] ?? null, false) . ",\n";
-        $out .= "        'reflexion' => " . php_nullable_scalar($entry['reflexion'] ?? null, true) . ",\n";
-        $out .= "        'aprendizaje' => " . php_nullable_scalar($entry['aprendizaje'] ?? null, true) . ",\n";
-        $out .= "        'cuestionamiento' => " . php_nullable_scalar($entry['cuestionamiento'] ?? null, true) . ",\n";
-        $out .= "        'aplicacion' => " . php_nullable_scalar($entry['aplicacion'] ?? null, true) . ",\n";
-        $out .= "        'evidencia' => " . format_evidencia_literal($entry['evidencia'] ?? null) . ",\n";
+        $out .= "        'title' => " . php_nullable_scalar($entry['title'] ?? null) . ",\n";
+        $out .= "        'theme' => " . php_nullable_scalar($entry['theme'] ?? null) . ",\n";
+        $out .= "        'blocks' => " . format_blocks_literal((array) ($entry['blocks'] ?? [])) . ",\n";
         $out .= "    ],\n";
     }
 
-    $out .= "];\n";
-
-    return $out;
+    return $out . "];\n";
 }
 
-/** Normaliza el texto de un <textarea>: CRLF -> LF, recorta, vacío -> null. */
+/** Normaliza un campo de texto simple (título/tema): recorta, vacío -> null. */
 function normalize_editor_text(string $value): ?string
 {
-    $value = str_replace(["\r\n", "\r"], "\n", $value);
-    $value = trim($value);
+    $value = trim(str_replace(["\r\n", "\r"], "\n", $value));
 
     return $value === '' ? null : $value;
 }
 
-const EDITABLE_ENTRY_FIELDS = ['title', 'theme', 'reflexion', 'aprendizaje', 'cuestionamiento', 'aplicacion'];
-
 /**
- * Aplica los campos editables a la entrada $week dentro de $entries, sin
- * tocar ninguna otra entrada ni los campos de fecha/semana/evidencia.
+ * Aplica título, tema y bloques (ya saneados por sanitize_blocks_input())
+ * a la entrada $week dentro de $entries, sin tocar ninguna otra entrada
+ * ni los campos de fecha/semana.
  */
-function apply_entry_edit(array $entries, int $week, array $submittedFields): array
+function apply_entry_edit(array $entries, int $week, string $title, string $theme, array $sanitizedBlocks): array
 {
     foreach ($entries as $i => $entry) {
         if ((int) $entry['week'] !== $week) {
             continue;
         }
 
-        foreach (EDITABLE_ENTRY_FIELDS as $field) {
-            $entries[$i][$field] = normalize_editor_text((string) ($submittedFields[$field] ?? ''));
-        }
-
+        $entries[$i]['title'] = normalize_editor_text($title);
+        $entries[$i]['theme'] = normalize_editor_text($theme);
+        $entries[$i]['blocks'] = $sanitizedBlocks;
         break;
     }
 

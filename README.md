@@ -43,18 +43,22 @@ del servidor embebido directamente — ver `CLAUDE.md` sección 8.
 
 ## Agregar o completar una entrada semanal
 
-**Opción 1 — desde el navegador:** entrá a `/editar`, iniciá sesión con
-la contraseña del editor, elegí la semana y guardá. El cambio se
-convierte en un commit real en GitHub y el sitio se actualiza solo en
-menos de un minuto. Ver "Editor privado" más abajo para configurarlo.
+**Opción 1 — desde el navegador (recomendada):** en la portada o en la
+página de cualquier semana vas a ver un enlace "+ Agregar" o "Editar"
+junto al estado de esa semana. Te pide la contraseña la primera vez y
+te lleva directo al editor visual de esa semana: título, tema, y un
+editor de bloques (párrafos, subtítulos, citas, listas, texto
+destacado, enlaces, imágenes — con vista previa en vivo). Guardar hace
+un commit real en GitHub y el sitio se actualiza solo en menos de un
+minuto. Ver "Editor privado" más abajo para configurarlo.
 
 **Opción 2 — editando el archivo:** editá `api/data/entries.php`: busca
-el arreglo con el `week` de la semana y completa `title`, `theme`,
-`reflexion`, `aprendizaje`, `cuestionamiento`, `aplicacion` y, si
-aplica, `evidencia`. No hace falta tocar ningún otro archivo — el
-estado de la entrada (próxima / disponible / completada) y el progreso
-general del diario se calculan automáticamente en cuanto `reflexion`
-deja de estar vacío.
+el arreglo con el `week` de la semana y completa `title`, `theme` y
+`blocks` (una lista de bloques tipados — ver el docblock del propio
+archivo, o `CLAUDE.md` sección 4-bis, para el formato exacto de cada
+tipo). No hace falta tocar ningún otro archivo — el estado de la
+entrada (próxima / disponible / completada) y el progreso general del
+diario se calculan automáticamente en cuanto `blocks` tiene contenido.
 
 Cada entrada tiene dos fechas distintas: `week_start` (el lunes en que
 arranca la semana académica) y `class_date` (el día real de la clase,
@@ -70,10 +74,14 @@ semestre, cantidad de semanas y el texto de introducción del diario.
 
 ## Editor privado (`/editar`)
 
-Permite editar el contenido de una entrada desde el navegador; el
-cambio se guarda como un commit real en GitHub, que dispara un
-despliegue automático en Vercel. Documentación técnica completa —
-arquitectura, seguridad, cómo probarlo — en `CLAUDE.md` sección 14.
+Editor visual de bloques (no un formulario de 4 casillas): título, tema
+y un cuerpo construido con párrafos, subtítulos, citas, texto
+destacado, listas, separadores, enlaces e imágenes (por URL), con
+formato en línea (negrita/cursiva/destacado/enlaces) y vista previa que
+usa los mismos estilos que la página pública. El cambio se guarda como
+un commit real en GitHub, que dispara un despliegue automático en
+Vercel. Documentación técnica completa — arquitectura, seguridad, cómo
+probarlo — en `CLAUDE.md` secciones 4-bis, 14 y 14-bis.
 
 Variables de entorno necesarias (Vercel → Settings → Environment
 Variables → Production y Preview; marcalas como **Sensitive**):

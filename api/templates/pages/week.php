@@ -27,50 +27,22 @@ $hasContent = $status === STATUS_COMPLETADA;
     <?php if ($entry['theme']): ?>
       <p class="week__theme"><?= e($entry['theme']) ?></p>
     <?php endif; ?>
-    <?= render_partial('partials/status-badge', ['status' => $status]) ?>
+    <div class="week__header-actions">
+      <?= render_partial('partials/status-badge', ['status' => $status]) ?>
+      <a class="week__edit-link" href="/editar/semana/<?= $week ?>">
+        <?= $hasContent ? 'Editar reflexión' : '+ Agregar reflexión' ?>
+      </a>
+    </div>
   </header>
 
   <?php if ($hasContent): ?>
     <div class="week__body">
-      <section class="week__section">
-        <h2>Lo que me llevo</h2>
-        <p><?= nl2br(e($entry['reflexion'])) ?></p>
-      </section>
-
-      <?php if (!empty($entry['aprendizaje'])): ?>
-        <section class="week__section">
-          <h2>Lo que espero desarrollar</h2>
-          <p><?= nl2br(e($entry['aprendizaje'])) ?></p>
-        </section>
-      <?php endif; ?>
-
-      <?php if (!empty($entry['cuestionamiento'])): ?>
-        <section class="week__section week__section--quote">
-          <h2>Una pregunta que me queda</h2>
-          <p><?= nl2br(e($entry['cuestionamiento'])) ?></p>
-        </section>
-      <?php endif; ?>
-
-      <?php if (!empty($entry['aplicacion'])): ?>
-        <section class="week__section">
-          <h2>Aplicación a la realidad nacional</h2>
-          <p><?= nl2br(e($entry['aplicacion'])) ?></p>
-        </section>
-      <?php endif; ?>
-
-      <?php if (!empty($entry['evidencia']['url'])): ?>
-        <section class="week__section">
-          <h2>Evidencia</h2>
-          <p><a class="week__evidence" href="<?= e($entry['evidencia']['url']) ?>" target="_blank" rel="noopener noreferrer">
-            <?= e($entry['evidencia']['label'] ?? 'Ver evidencia') ?> ↗
-          </a></p>
-        </section>
-      <?php endif; ?>
+      <?= render_blocks_html($entry['blocks']) ?>
     </div>
   <?php elseif ($status === STATUS_DISPONIBLE): ?>
     <div class="week__empty">
       <p>Esta semana ya tuvo clase, pero la reflexión todavía no se ha escrito.</p>
-      <p class="week__empty-hint">Se completa editando <code>api/data/entries.php</code>.</p>
+      <p class="week__empty-hint"><a href="/editar/semana/<?= $week ?>">Escribirla ahora →</a></p>
     </div>
   <?php else: ?>
     <div class="week__empty">

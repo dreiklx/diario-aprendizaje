@@ -28,8 +28,13 @@ como tabla de contenidos) es deliberada. Ver sección 6.
   de plantillas: no hay Blade, Twig, ni sintaxis inventada).
 - CSS propio, sin frameworks (Tailwind, Bootstrap). Variables CSS
   (custom properties), sin preprocesador.
-- JavaScript vanilla, deliberadamente mínimo (ver `assets/js/main.js`:
-  ~20 líneas, solo navegación por teclado entre semanas).
+- JavaScript vanilla, sin librerías. `assets/js/main.js` (sitio público,
+  ~80 líneas: tema, revelado al scroll, navegación por teclado) es
+  deliberadamente mínimo. `assets/js/editor.js` (solo `/editar`, no se
+  carga en el sitio público) es más grande porque **es** la interfaz del
+  editor de bloques — no hay forma de construir esa experiencia con
+  menos JS sin perder la edición visual que pidió el usuario; ver
+  sección 14-bis.
 - Sin base de datos. Los datos viven en arrays PHP versionados en Git
   (`api/data/*.php`); el editor privado los modifica vía la API de
   contenidos de GitHub (commits reales), no vía un almacén aparte.
@@ -54,10 +59,11 @@ api/
     entries.php            Lógica de negocio: estado, progreso, acceso a datos
     dates.php               Formato y comparación de fechas (ES)
     render.php               Motor de plantillas mínimo (extract + include + ob_*)
-    auth.php                 Sesión del editor: cookie firmada (HMAC), sin estado en servidor
-    github.php                Cliente mínimo de la API de contenidos de GitHub
-    entries_editor.php         Parser/serializador de entries.php (editor privado)
-    editor_actions.php          Controladores de /editar (login, guardar, logout)
+    blocks.php               Modelo de contenido por bloques: renderer seguro + sanitización (ver sección 4-bis)
+    auth.php                  Sesión del editor: cookie firmada (HMAC), sin estado en servidor
+    github.php                 Cliente mínimo de la API de contenidos de GitHub
+    entries_editor.php          Parser/serializador de entries.php (editor privado)
+    editor_actions.php           Controladores de /editar (login, guardar, logout)
   data/
     course.php              Metadatos del curso (única fuente de verdad)
     entries.php              Las 15 entradas del diario (única fuente de verdad)
@@ -72,8 +78,10 @@ assets/
     base.css                   Reset + estilos de elementos base + a11y
     layout.css                  Nav, footer, contenedores, disposición de secciones
     components.css               Badge, progress bar, timeline, artículo de semana, pager
-    editor.css                    Solo para /editar — formularios, botones, lista de semanas
-  js/main.js                  Toggle de tema, revelado al scroll (IntersectionObserver), navegación por teclado (← →)
+    editor.css                    Solo para /editar — formularios, editor de bloques, lista de semanas
+  js/
+    main.js                      Sitio público: tema, revelado al scroll, navegación por teclado
+    editor.js                     Solo /editar: editor de bloques completo (ver sección 14-bis)
 
 vercel.json                  Runtime PHP + rewrite catch-all
 dev-router.php               Router SOLO para `php -S` local (ver sección 8)
@@ -103,19 +111,72 @@ pasadas a `render_page()` → plantilla. Ninguna plantilla lee
 
 Dos formas, el mismo archivo de destino:
 
-- **Desde el navegador (recomendado para el día a día):** entrá a
-  `/editar`, iniciá sesión, elegí la semana. Guarda un commit real en
-  GitHub y redespliega solo. Ver sección 14 para el detalle completo.
+- **Desde el navegador (recomendado):** en `/` o en `/semana/N`, cada
+  semana tiene un enlace "+ Agregar" o "Editar" junto a su badge de
+  estado (visible para cualquiera, pero lleva a la pantalla de
+  contraseña si no hay sesión — ver sección 14). Construís la reflexión
+  con el editor de bloques y guardás: commit real en GitHub, redeploy
+  automático. Ver sección 14 y 14-bis para el detalle completo.
 - **Editando el archivo a mano:** editá **solo** `api/data/entries.php`.
-  Busca el arreglo con el `week` correspondiente y completa los campos
-  (`title`, `theme`, `reflexion`, `aprendizaje`, `cuestionamiento`,
-  `aplicacion`, `evidencia`). No toques ningún otro archivo.
+  Busca el arreglo con el `week` correspondiente y completa `title`,
+  `theme` y `blocks` (ver sección 4-bis para el formato de `blocks`). No
+  toques ningún otro archivo.
 
 - El estado (`próxima` / `disponible` / `completada`) se calcula solo:
-  en cuanto `reflexion` deja de estar vacío, la entrada pasa a
-  `completada`. No hay un campo `status` que se pueda desincronizar.
+  en cuanto `blocks` tiene al menos un bloque con contenido real, la
+  entrada pasa a `completada` (`entry_has_content()` en
+  `api/lib/blocks.php`). No hay un campo `status` que se pueda
+  desincronizar.
 - El progreso (`X / 15`) se recalcula solo a partir de esa misma lista.
   Nunca escribas un porcentaje o conteo a mano en ninguna plantilla.
+
+## 4-bis. Modelo de contenido: bloques
+
+Hasta la iteración anterior cada entrada tenía cuatro campos de texto
+fijos (`reflexion`, `aprendizaje`, `cuestionamiento`, `aplicacion`). Se
+reemplazaron por **`blocks`**: una lista ordenada de bloques tipados,
+para poder construir una reflexión con la estructura que haga falta en
+cada semana en vez de encajarla en cuatro casilleros fijos. Todo vive en
+`api/lib/blocks.php`.
+
+**Tipos de bloque** (`BLOCK_TYPES`): `heading` (subtítulo de sección),
+`paragraph`, `highlight` (párrafo destacado, fondo de acento),
+`quote`, `list` (`style`: `ordered`/`unordered` + `items[]`), `divider`
+(sin contenido), `link` (`text` + `url`), `image` (`url` + `alt` +
+`caption`, siempre por URL — nunca hubo subida de archivos, ver sección
+14-bis). Se consolidó a propósito "Título" y "Subtítulo" (que el pedido
+original listaba por separado) en un solo tipo `heading` — el título
+grande de la entrada ya es el campo `title` de nivel superior, mostrado
+como `<h1>`; un segundo nivel de heading dentro del cuerpo alcanza para
+dividir la reflexión en secciones sin duplicar jerarquías.
+
+**Marcado en línea** (dentro de `text`/`items`/`caption`): `**negrita**`,
+`*cursiva*`, `==destacado==` (span con el color de acento — la única
+"opción de color" del editor, a propósito: nada de selector RGB libre
+que pueda romper la identidad visual, ver sección 6), `[texto](url)`.
+Es el único formato admitido — nunca HTML crudo.
+
+**Seguridad — por qué esto no es una superficie de XSS:**
+`render_inline_markup()` primero pasa el texto completo por `e()`
+(`htmlspecialchars`) y **solo después** aplica las sustituciones de
+arriba, que son las únicas fuentes de etiquetas HTML en la salida
+(`<strong>`, `<em>`, `<mark>`, `<a>`). Ningún dato del usuario llega
+nunca a imprimirse como HTML sin escapar primero. Los `url` (bloque
+`link`/`image`, y los de `[texto](url)`) pasan por
+`sanitize_block_url()`: solo `http(s)://` absoluto o `/ruta` relativa
+del propio sitio — cualquier otro esquema (`javascript:`, `data:`, etc.)
+se rechaza. Si alguna vez agregás un tipo de bloque nuevo, seguí el
+mismo patrón: escapar primero, insertar etiquetas fijas después, nunca
+un `$html .= $input` directo.
+
+**`sanitize_blocks_input()`** es el segundo cinturón de seguridad: pase
+lo que pase por HTTP (el editor manda `blocks_json`, un JSON armado en
+el navegador), el servidor vuelve a validar tipo por tipo antes de
+tocar `entries.php` — nunca confía en la forma que asume el JS. Límites
+duros: `BLOCK_MAX_COUNT` (40 bloques), `BLOCK_TEXT_MAX` (4000
+caracteres), `BLOCK_LIST_ITEMS_MAX` (30 ítems). Un bloque sin contenido
+(texto vacío, sin URL válida) se descarta silenciosamente al guardar —
+no llega a persistirse un bloque vacío.
 
 ### Semana académica vs. día de clase — dos fechas, no una
 
@@ -194,6 +255,14 @@ Dirección: editorial cálido, no "dashboard", no plantilla de curso.
   futura: primera persona, natural, nada de lenguaje académico
   artificial ("hoy en la clase...", no "en el marco de la presente
   sesión...").
+- **Un solo color "de énfasis" en el contenido, no un selector RGB
+  libre:** el editor permite destacar texto en línea (`==texto==`), pero
+  solo con `--color-accent` — el mismo azul que ya se usa en enlaces,
+  semana actual, etc. Fue deliberado (pedido explícito): un selector de
+  color arbitrario en el contenido rompería la paleta cuidada del
+  sitio. Si en algún momento se pide más de un color de énfasis, que
+  sean tokens con nombre (`--color-accent`, `--color-secondary`...),
+  nunca un `<input type="color">` libre.
 
 ## 6-bis. Modo claro/oscuro
 
@@ -489,6 +558,34 @@ seguido con un commit real a `master` para que vuelvan a coincidir.
   usá un archivo de prueba fuera de `api/`, o mejor, probá siempre a
   través del propio flujo de la app (`/editar/semana/N`), que nunca
   reemplaza el archivo completo — solo el campo editado (ver sección 14).
+- **Un atributo `hidden` no gana contra tu propia clase si le pusiste
+  `display` a esa clase.** Pasó con `.editor-draft-banner { display: flex }`:
+  el elemento seguía visible con `hidden` puesto, porque un selector de
+  clase de autor y el `[hidden] { display: none }` de la hoja de estilos
+  del navegador tienen la MISMA especificidad, y el de autor va después
+  en la cascada — gana. Arreglo: agregar siempre
+  `.tu-clase[hidden] { display: none; }` explícito junto a cualquier
+  clase que le dé `display` a un elemento que también se oculta con el
+  atributo `hidden`. Ya está hecho para `.editor-draft-banner` y
+  `.editor-pane--*`; si agregás otro elemento con este patrón, no te
+  olvides de la misma regla.
+- **`display: contents` para que un `<a>` que envuelve varios elementos
+  de un grid no le rompa el layout al grid.** El timeline necesitaba que
+  index+nodo+título fueran un solo enlace clicable pero también
+  ocuparan grid-areas independientes de `.timeline__row` — un `<a>` con
+  su propia caja no puede hacer eso (sus hijos quedarían anidados un
+  nivel más adentro del grid). Solución: `.timeline__link { display:
+  contents; }` — el `<a>` deja de generar caja propia, sus hijos pasan a
+  participar directo del grid del padre, y sigue funcionando como enlace
+  real (clic, foco, lector de pantalla) porque `display: contents` no
+  quita la semántica del elemento, solo su caja. `:hover`/`:focus-visible`
+  sobre un elemento así siguen funcionando con normalidad (el estado
+  seudo-clase no depende de tener una caja). Mismo patrón se puede
+  reusar si hace falta un enlace "envolvente" dentro de otro grid/flex
+  en el futuro — por ejemplo, es exactamente el mismo problema que
+  resolvió el badge + enlace "Editar" al lado del link principal del
+  timeline (sección 14-bis, sin anidar un `<a>` dentro de otro `<a>`,
+  que es HTML inválido).
 
 ## 12. Convenciones de nombres
 
@@ -521,12 +618,25 @@ seguido con un commit real a `master` para que vuelvan a coincidir.
    un `filter: invert()` ni overrides sueltos — cualquier color nuevo se
    declara en los tres bloques (`:root`, `prefers-color-scheme`,
    `[data-theme="dark"]`).
-8. El editor privado (sección 14) solo puede modificar los campos de
-   texto de una entrada en `api/data/entries.php`, nunca otro archivo.
+8. El editor privado (sección 14) solo puede modificar título, tema y
+   bloques de una entrada en `api/data/entries.php`, nunca otro archivo.
    La contraseña vive solo como hash (`EDITOR_PASSWORD_HASH`), nunca en
    texto plano en ningún archivo ni commit. El dominio de producción
    (`diario-aprendizaje.vercel.app`) no debe cambiar nunca — conectar
    Git a este mismo proyecto es seguro; crear un proyecto nuevo no lo es.
+9. El contenido de una entrada es una lista de `blocks` tipados
+   (sección 4-bis), no cuatro campos fijos. Cualquier tipo de bloque
+   nuevo se renderiza SIEMPRE escapando primero y agregando etiquetas
+   fijas después (`render_inline_markup()` en `api/lib/blocks.php`) —
+   nunca una ruta que imprima HTML/Markdown de un usuario sin pasar por
+   ahí. El renderer de vista previa en `editor.js` es un espejo del de
+   PHP por UX, no por seguridad — la autoridad siempre es PHP.
+10. Los botones "+ Agregar"/"Editar" de cada semana viven en el sitio
+    público (`/`, `/semana/N`) a propósito — no solo dentro de
+    `/editar` — para que el autor no tenga que recordar esa ruta
+    (pedido explícito). Son visibles para cualquier visitante, pero no
+    son la barrera de seguridad: la contraseña sigue siendo la única
+    forma real de editar algo.
 
 ## 14. Editor privado (`/editar`)
 
@@ -543,22 +653,29 @@ Usuario entra a /editar
   → sin cookie válida: formulario de contraseña
   → password_verify() contra EDITOR_PASSWORD_HASH (server-side, bcrypt)
   → correcta: cookie firmada (HMAC-SHA256, 4h) → lista de semanas
+Click en "+ Agregar"/"Editar" en / o /semana/N (sin sesión)
+  → /editar?next=/editar/semana/N → login → aterriza directo en esa semana
+    (sanitize_editor_next_path() solo acepta rutas propias de /editar)
 Usuario abre /editar/semana/N
   → GET a la API de contenidos de GitHub: contenido + sha ACTUALES de
     entries.php (no la copia local empaquetada en el deployment)
-  → formulario prellenado con los campos editables de esa entrada,
+  → editor de bloques prellenado con title/theme/blocks de esa entrada,
     más un input oculto con el sha capturado en este momento
-Usuario edita y guarda (POST)
+Usuario construye la reflexión en el editor visual (ver 14-bis) y guarda (POST)
   → valida CSRF (token derivado de la propia cookie de sesión)
+  → decodifica blocks_json y lo vuelve a validar por completo server-side
+    (sanitize_blocks_input() — nunca confía en lo que mandó el navegador)
   → vuelve a traer el archivo completo de GitHub (versión más reciente)
-  → aplica SOLO los campos editables de la semana N sobre esa copia
+  → aplica título/tema/bloques SOLO de la semana N sobre esa copia
   → PUT a GitHub con el sha capturado al abrir el formulario
       → si nadie más tocó el archivo mientras tanto: 200, commit real
       → si alguien sí lo tocó: 409, y se muestra el conflicto en vez
         de sobrescribir en silencio
   → GitHub dispara su webhook a Vercel (repo conectado, sección 10)
   → Vercel construye y despliega — mismo projectId, mismo dominio
-  → la página de guardado confirma "Cambios enviados correctamente"
+  → la página confirma el commit y editor.js sondea /semana/N cada
+    3s hasta ver el contenido nuevo publicado (ver 14-bis, "honestidad
+    del estado de publicación") o hasta ~75s, lo que pase primero
 ```
 
 No hay `session_start()` de PHP en ningún lado: una función serverless
@@ -586,6 +703,9 @@ enteramente la cookie firmada — ver `api/lib/auth.php`.
   cliente no acepta ninguna ruta que venga del navegador, así que no
   hay forma de que el editor toque otro archivo aunque alguien lo
   intentara.
+- **`api/lib/blocks.php`** — modelo de contenido, renderer y
+  sanitización de bloques. Ver sección 4-bis; lo usan tanto la página
+  pública (`week.php`) como el editor (validación al guardar).
 - **`api/lib/entries_editor.php`** — lee y reescribe `entries.php` de
   forma quirúrgica: separa todo lo que hay antes de `return [` (el
   docblock, tal cual) del cuerpo del arreglo, y regenera solo el cuerpo
@@ -598,22 +718,25 @@ enteramente la cookie firmada — ver `api/lib/auth.php`.
   ese archivo solo se puede escribir a través de este mismo editor).
 - **`api/lib/editor_actions.php`** — controladores de las rutas.
   Reciben `$course` explícito (nunca `$GLOBALS`), renderizan su propia
-  respuesta y terminan la petición.
-- **`api/templates/pages/editor-*.php` + `assets/css/editor.css`** —
-  vista. Reutiliza los mismos componentes/tokens del sitio público
-  (`status-badge`, tipografía, modo claro/oscuro); `editor.css` se
-  carga solo cuando `layout.php` recibe `'private' => true` (headers
+  respuesta y terminan la petición. `handle_editor_week_save()` decodifica
+  `blocks_json`, lo pasa por `sanitize_blocks_input()` y recién ahí lo
+  usa — nunca confía en la forma que mandó el navegador.
+- **`api/templates/pages/editor-*.php` + `assets/css/editor.css` +
+  `assets/js/editor.js`** — vista. Reutiliza los mismos componentes/
+  tokens del sitio público (`status-badge`, tipografía, modo claro/
+  oscuro, incluso las clases `.block-*` del renderer PHP para que la
+  vista previa se vea igual); `editor.css`/`editor.js` se cargan solo
+  cuando `layout.php` recibe `'private' => true` (headers
   `X-Robots-Tag: noindex` y `Cache-Control: no-store` también van ahí).
 
 ### Qué puede y qué no puede modificar
 
-Campos editables de una entrada (`EDITABLE_ENTRY_FIELDS` en
-`entries_editor.php`): `title`, `theme`, `reflexion`, `aprendizaje`,
-`cuestionamiento`, `aplicacion`. **No** son editables desde el panel:
-`week`, `week_start`, `class_date` (son el modelo de calendario, no
-contenido de reflexión — cambiarlos ahí podría romper el cálculo de
-estado) ni `evidencia` (fuera de alcance, no pedido). Ningún otro
-archivo del repositorio es alcanzable desde el editor.
+Desde el panel se edita `title`, `theme` y `blocks` de UNA entrada.
+**No** son editables desde el panel: `week`, `week_start`, `class_date`
+(son el modelo de calendario, no contenido de reflexión — cambiarlos
+ahí podría romper el cálculo de estado). Ningún otro archivo del
+repositorio es alcanzable desde el editor — `github.php` tiene la ruta
+del archivo fija en código, no la recibe del navegador.
 
 ### Medidas de seguridad implementadas
 
@@ -634,7 +757,14 @@ archivo del repositorio es alcanzable desde el editor.
   objetivo de alto valor.
 - Todo el texto que entra por el editor pasa por `e()` al mostrarse en
   el sitio público — el mismo mecanismo de escape que ya usa cualquier
-  otro contenido, no hay una ruta de salida nueva sin escapar.
+  otro contenido, no hay una ruta de salida nueva sin escapar. El
+  contenido enriquecido (negrita/cursiva/destacado/enlaces) nunca es
+  HTML enviado por el navegador: es marcado propio, mínimo, procesado
+  por `render_inline_markup()` en el servidor (ver sección 4-bis) — el
+  editor no tiene ninguna ruta que guarde HTML arbitrario.
+- `sanitize_blocks_input()` vuelve a validar cada bloque server-side
+  (tipo, longitud, URLs) sin importar lo que mande `blocks_json` —
+  nunca se confía en la forma que asumió el JavaScript del navegador.
 - El token de GitHub tiene permiso mínimo: *fine-grained*, restringido
   a un único repo, solo `Contents: Read and write` — no puede tocar
   otros repos, Actions, Issues, ni configuración del repo.
@@ -666,15 +796,38 @@ una semana. Es una forma útil de probar el manejo de errores sin tocar
 GitHub.
 
 Para una prueba real de guardado, hacé el ciclo completo edición →
-verificación → reversión (así se probó en esta sesión):
+verificación → reversión (así se probó en esta sesión, dos veces: una
+vez para los campos simples, otra para el modelo de bloques):
 1. Cargá `/editar/semana/N`, anotá el `sha` que trae el formulario.
 2. Guardá un valor de prueba claramente marcado como tal.
-3. Verificá con un GET directo a la API de GitHub que **solo** cambió
-   el campo esperado (`diff` contra el archivo local sin tocar).
+3. Verificá con un GET directo a la API de GitHub (pedí
+   `Accept: application/vnd.github.raw+json` para traer el archivo
+   crudo, no en base64) que **solo** cambió el campo esperado (`diff`
+   contra el archivo local sin tocar).
 4. Esperá el redeploy (unos 15-30s) y confirmá en producción.
 5. Volvé a `/editar/semana/N` (el `sha` ya cambió, el formulario trae
    el nuevo automáticamente) y guardá el valor original para revertir.
 6. Confirmá otra vez con `diff` que quedó byte a byte igual que antes.
+
+**⚠️ Nunca improvises un PUT de prueba directo a la API de GitHub
+apuntando a `api/data/entries.php` con contenido descartable ("x", "test",
+etc.) — en la sesión anterior eso reemplazó el archivo real por un
+único carácter durante ~20 segundos hasta que se detectó y se restauró
+(ver sección 11). Si necesitás probar la API de GitHub a mano (no a
+través de la app), primero hacé un GET, usá el `sha` real, y mandá el
+contenido real con solo el cambio puntual — o mejor, probá siempre a
+través de `/editar/semana/N`, que nunca reemplaza el archivo completo.
+
+Para probar la parte de JavaScript (agregar/mover/duplicar/borrar
+bloques, toolbar, tabs Editar/Vista previa) sin arriesgar nada contra
+GitHub: no hace falta `GITHUB_TOKEN` válido para esto — todo pasa en el
+navegador hasta que se aprieta "Guardar y publicar". Si tenés Chrome
+instalado, `puppeteer-core` (`npm install --no-save puppeteer-core`,
+apuntando a `executablePath` del Chrome real, sin descargar un Chromium
+aparte) permite automatizar clics/tipeo reales para probar esto — se
+usó así en esta sesión y después se borró (`node_modules`,
+`puppeteer-core` y los scripts de prueba no forman parte del proyecto,
+nunca los commitees).
 
 ### Rotar o cambiar secretos
 
@@ -722,3 +875,76 @@ tenía ninguna fuente de Git asociada). Se resolvió así, en este orden:
 No se creó ningún sistema paralelo de despliegue (nada de subir
 archivos manualmente vía la API de Vercel) — el editor solo hace un
 commit a GitHub; el redeploy es 100% el mecanismo nativo de Vercel.
+
+## 14-bis. Editor de bloques (interfaz)
+
+`assets/js/editor.js` + `assets/css/editor.css` +
+`api/templates/pages/editor-week.php`. Es la pieza más grande de
+JavaScript del proyecto — ver sección 2 sobre por qué se aceptó esa
+excepción al "JS mínimo".
+
+**Estado y renderizado:** un único objeto `state.blocks` en memoria.
+Escribir en un `<textarea>`/`<input>` de un bloque actualiza
+`state.blocks[i]` **sin** volver a dibujar el DOM (así no se pierde el
+foco/cursor en cada tecla); agregar, mover, duplicar o borrar un bloque
+sí vuelve a dibujar todo `#blocks-container` desde `state` — son
+acciones discretas de botón, no por tecla, así que redibujar entero es
+seguro y más simple que hacer un diff manual. Cada cambio de estado
+llama a `onStateChanged()`, que: (1) serializa `state.blocks` al campo
+oculto `#blocks-json` (lo único que de verdad viaja al servidor), (2)
+actualiza la vista previa (debounced 200ms), (3) programa un
+autoguardado local (debounced 1200ms).
+
+**Vista previa — aproximación visual, no la autoridad de seguridad.**
+`renderBlockPreview()` en `editor.js` es un espejo en JavaScript de
+`render_block_html()`/`render_inline_markup()` en `api/lib/blocks.php`
+(mismas clases CSS `.block-*`, para que la vista previa se vea
+exactamente como la página pública). Si cambiás qué marcado se admite
+o cómo se renderiza un tipo de bloque, **actualizá los dos archivos** —
+quedó documentado en el encabezado de `editor.js` para que no se
+olvide. La única fuente de verdad para lo que realmente se publica es
+siempre el renderer de PHP; el de JS es puramente para que el autor
+vea el resultado mientras escribe, nunca se envía al servidor.
+
+**Editar / Vista previa:** en pantallas ≥1024px ambos paneles se ven
+lado a lado (CSS grid, sección `.editor-workspace`); por debajo de eso
+son pestañas (`#tab-edit`/`#tab-preview`, JS mínimo que alterna
+`hidden`). Los estilos de la vista previa (`.week__body` +
+`.block-*`) son los mismos que usa `/semana/N` — no hay una hoja de
+estilos aparte para la vista previa.
+
+**Toolbar de formato:** cuatro botones (B, I, ◆, 🔗) por cada bloque de
+texto, que envuelven la selección actual del `<textarea>` con
+`**`/`*`/`==`/`[…](https://)`. Sin selección, insertan la sintaxis con
+un placeholder para que el autor escriba encima. Es manipulación directa
+de `selectionStart`/`selectionEnd` — no usa `document.execCommand`
+(deprecado e inconsistente entre navegadores).
+
+**Borrador local (autoguardado):** `localStorage['diario-editor-draft-week-N']`
+guarda `{savedAt, title, theme, blocks}` cada vez que hay un cambio
+(debounced). Es **solo** una recuperación ante pérdida accidental
+(pestaña cerrada, navegador crasheado) — nunca sustituye al guardado
+real. Al cargar la página, si existe un borrador para esa semana se
+muestra un banner con "Restaurar"/"Descartar" (nunca se aplica solo).
+Se borra automáticamente después de un guardado exitoso.
+
+**Confirmación honesta de publicación (sin token de Vercel):** después
+de un guardado exitoso, `pollForPublication()` no asume que "commit en
+GitHub" significa "ya está publicado" — sondea la propia
+`/semana/N` cada 3s (con `cache: 'no-store'` y un query param de
+cache-busting) buscando un `publishCheckMarker` (el título nuevo, o si
+no hay título, los primeros ~40 caracteres del primer bloque con
+contenido — heurística simple, documentada como tal en
+`editor-week.php`) hasta encontrarlo o hasta ~25 intentos (~75s). Así
+se evita afirmar "Publicado" cuando Vercel todavía está construyendo,
+sin necesitar un token de la API de Vercel (que hubiera sido un secreto
+más para gestionar, no pedido explícitamente).
+
+**Redirección tras login (`next`):** los enlaces "+ Agregar"/"Editar"
+en `/` y `/semana/N` apuntan directo a `/editar/semana/N`.
+`require_editor_auth()` (sin sesión) redirige a
+`/editar?next=/editar/semana/N`; el login, al validar la contraseña,
+redirige a ese `next` en vez de siempre a la lista de semanas —
+`sanitize_editor_next_path()` en `auth.php` solo acepta rutas propias
+de `/editar` (regex `^/editar(/semana/\d+)?$`), nunca una URL externa
+(protección básica contra open redirect).
