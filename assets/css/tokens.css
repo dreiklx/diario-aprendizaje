@@ -1,0 +1,89 @@
+/**
+ * Sistema de diseño — variables.
+ *
+ * Breakpoints usados en todo el proyecto (no hay variable CSS para esto,
+ * los media queries no pueden leer custom properties):
+ *   480px  — móvil grande
+ *   768px  — tablet
+ *   1024px — laptop
+ *   1440px — escritorio grande
+ *
+ * Mobile-first: los estilos base son para móvil, los media query usan
+ * min-width para ampliar hacia pantallas grandes.
+ */
+
+:root {
+  /* — Color — paleta editorial, cálida, sobria.
+     Inspirada muy sutilmente en el azul institucional de la UCR, sin
+     copiar su identidad literal. */
+  --color-bg: #faf7f0;
+  --color-surface: #ffffff;
+  --color-surface-sunken: #f2ede2;
+  --color-text: #1c1a17;
+  --color-text-muted: #6b6459;
+  --color-text-faint: #9a9284;
+  --color-border: #e3dccc;
+  --color-border-strong: #cfc6b2;
+
+  --color-accent: #1f3a5f;
+  --color-accent-ink: #14263f;
+  --color-accent-soft: #e9eef4;
+
+  --color-completed: #3f6b4f;
+  --color-completed-soft: #e7efe8;
+  --color-available: #8a4f1f;
+  --color-available-soft: #f5ebdd;
+  --color-upcoming: #6b6459;
+  --color-upcoming-soft: #efece2;
+
+  --color-focus-ring: #1f3a5f;
+
+  /* — Tipografía — */
+  --font-display: 'Fraunces', 'Iowan Old Style', 'Palatino Linotype', serif;
+  --font-body: 'Inter', -apple-system, 'Segoe UI', sans-serif;
+
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: clamp(1.25rem, 1.1rem + 0.6vw, 1.5rem);
+  --text-2xl: clamp(1.6rem, 1.35rem + 1.1vw, 2.1rem);
+  --text-3xl: clamp(2.1rem, 1.7rem + 1.8vw, 2.9rem);
+  --text-hero: clamp(2.6rem, 1.9rem + 3.2vw, 4.6rem);
+
+  --leading-tight: 1.1;
+  --leading-snug: 1.35;
+  --leading-normal: 1.6;
+  --leading-relaxed: 1.75;
+
+  --measure: 66ch;
+  --measure-narrow: 48ch;
+
+  /* — Espaciado — escala de 4px — */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 2.5rem;
+  --space-8: 3rem;
+  --space-9: 4rem;
+  --space-10: 5rem;
+  --space-12: 7rem;
+
+  /* — Bordes y forma — */
+  --radius-sm: 2px;
+  --radius-md: 4px;
+  --radius-full: 999px;
+
+  /* — Movimiento — */
+  --duration-fast: 150ms;
+  --duration-base: 250ms;
+  --duration-slow: 500ms;
+  --ease-standard: cubic-bezier(0.2, 0.6, 0.2, 1);
+
+  /* — Layout — */
+  --content-width: 1180px;
+  --reading-width: 720px;
+}
