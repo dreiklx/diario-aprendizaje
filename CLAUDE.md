@@ -9,9 +9,12 @@ localmente, desplegar).
 
 Diario de Aprendizaje digital para el curso **SR-0022 Seminario de
 Realidad Nacional II — "Producción y Desarrollo"**, Universidad de Costa
-Rica, Sede del Caribe, II Ciclo 2026. Es un sitio editorial de una sola
-persona (sin login, sin comentarios, sin base de datos) que documenta 15
-entradas semanales a lo largo del semestre.
+Rica, Sede del Caribe, II Ciclo 2026. Autor: Derek Farley Noguera (carné
+C5F012). Es un sitio editorial de una sola persona (sin comentarios, sin
+base de datos) que documenta 15 entradas semanales a lo largo del
+semestre. La lectura pública no requiere login; existe un editor privado
+protegido por contraseña en `/editar` (ver sección 14) para que el autor
+edite sus reflexiones desde el navegador sin tocar código.
 
 No es una plantilla ni un proyecto de curso "genérico": la dirección de
 diseño (tipografía Fraunces + Inter, paleta editorial cálida, timeline
@@ -28,12 +31,18 @@ como tabla de contenidos) es deliberada. Ver sección 6.
 - JavaScript vanilla, deliberadamente mínimo (ver `assets/js/main.js`:
   ~20 líneas, solo navegación por teclado entre semanas).
 - Sin base de datos. Los datos viven en arrays PHP versionados en Git
-  (`api/data/*.php`).
-- Sin autenticación, sin panel admin, sin CMS.
+  (`api/data/*.php`); el editor privado los modifica vía la API de
+  contenidos de GitHub (commits reales), no vía un almacén aparte.
+- Sin autenticación **en el sitio público** — la lectura del diario nunca
+  pide contraseña. Sí existe autenticación en `/editar` (contraseña +
+  cookie firmada), pedida explícitamente por el usuario; ver sección 14.
+  No es un panel admin genérico ni un CMS: solo puede editar los campos
+  de texto de una entrada, nada más.
 
-Si en algún momento sientes la tentación de añadir cualquiera de estas
-cosas para "mejorar" el proyecto: no lo hagas sin que el usuario lo pida
-explícitamente. Es una decisión de producto, no un descuido.
+Si en algún momento sientes la tentación de añadir algo de esta lista
+(o de ampliar lo que el editor puede tocar) para "mejorar" el proyecto:
+no lo hagas sin que el usuario lo pida explícitamente. Es una decisión
+de producto, no un descuido.
 
 ## 3. Arquitectura
 
@@ -45,13 +54,17 @@ api/
     entries.php            Lógica de negocio: estado, progreso, acceso a datos
     dates.php               Formato y comparación de fechas (ES)
     render.php               Motor de plantillas mínimo (extract + include + ob_*)
+    auth.php                 Sesión del editor: cookie firmada (HMAC), sin estado en servidor
+    github.php                Cliente mínimo de la API de contenidos de GitHub
+    entries_editor.php         Parser/serializador de entries.php (editor privado)
+    editor_actions.php          Controladores de /editar (login, guardar, logout)
   data/
     course.php              Metadatos del curso (única fuente de verdad)
     entries.php              Las 15 entradas del diario (única fuente de verdad)
   templates/
     layout.php               <html> completo: head, nav, <main>, footer, scripts
     partials/                 nav, footer, progress, status-badge, timeline
-    pages/                     home, week, course, not-found
+    pages/                     home, week, course, not-found, editor-login, editor-weeks, editor-week
 
 assets/
   css/
@@ -59,6 +72,7 @@ assets/
     base.css                   Reset + estilos de elementos base + a11y
     layout.css                  Nav, footer, contenedores, disposición de secciones
     components.css               Badge, progress bar, timeline, artículo de semana, pager
+    editor.css                    Solo para /editar — formularios, botones, lista de semanas
   js/main.js                  Toggle de tema, revelado al scroll (IntersectionObserver), navegación por teclado (← →)
 
 vercel.json                  Runtime PHP + rewrite catch-all
@@ -87,10 +101,15 @@ pasadas a `render_page()` → plantilla. Ninguna plantilla lee
 
 ## 4. Cómo agregar o completar una entrada semanal
 
-Edita **solo** `api/data/entries.php`. Busca el arreglo con el `week`
-correspondiente y completa los campos (`title`, `theme`, `reflexion`,
-`aprendizaje`, `cuestionamiento`, `aplicacion`, `evidencia`). No toques
-ningún otro archivo.
+Dos formas, el mismo archivo de destino:
+
+- **Desde el navegador (recomendado para el día a día):** entrá a
+  `/editar`, iniciá sesión, elegí la semana. Guarda un commit real en
+  GitHub y redespliega solo. Ver sección 14 para el detalle completo.
+- **Editando el archivo a mano:** editá **solo** `api/data/entries.php`.
+  Busca el arreglo con el `week` correspondiente y completa los campos
+  (`title`, `theme`, `reflexion`, `aprendizaje`, `cuestionamiento`,
+  `aplicacion`, `evidencia`). No toques ningún otro archivo.
 
 - El estado (`próxima` / `disponible` / `completada`) se calcula solo:
   en cuanto `reflexion` deja de estar vacío, la entrada pasa a
@@ -302,6 +321,10 @@ proyecto). Antes de dar por buena una sesión de trabajo:
 6. Con JavaScript deshabilitado (o revisando el HTML crudo), confirma
    que todo el contenido con `.reveal` sigue siendo visible — es la
    prueba de que la degradación seguro del revelado progresivo funciona.
+7. Si tocaste algo de `/editar`: seguí los pasos de la sección 14
+   ("Cómo probar el editor localmente") — incluyen el ciclo completo de
+   edición/verificación/reversión contra el repositorio real, no solo
+   contra el servidor local.
 
 ## 10. Cómo desplegar (Vercel + PHP)
 
@@ -334,6 +357,20 @@ completa más abajo.
   changelog en github.com/vercel-community/php — el runtime sube de
   versión con cierta frecuencia y soporta PHP 7.4–8.5.
 
+**Variables de entorno (Vercel → Settings → Environment Variables,
+configuradas en Production y Preview):**
+
+| Variable | Qué es | Cómo se generó |
+|---|---|---|
+| `EDITOR_PASSWORD_HASH` | Hash bcrypt de la contraseña del editor | `password_hash($pw, PASSWORD_BCRYPT)` — la contraseña en texto plano nunca se guarda en ningún lado |
+| `SESSION_SECRET` | Clave para firmar la cookie de sesión del editor (HMAC-SHA256) | `bin2hex(random_bytes(32))`, generada una vez |
+| `GITHUB_TOKEN` | Fine-grained PAT de GitHub, permiso **Contents: Read and write** únicamente sobre `dreiklx/diario-aprendizaje`, sin ningún otro permiso | Creado a mano en github.com/settings/personal-access-tokens (no se puede automatizar por CLI — ver sección 14) |
+
+Todas marcadas como **Sensitive** en Vercel (ocultas incluso en el
+dashboard después de guardarlas). Ninguna aparece en el repo, en logs, ni
+en el HTML/JS que llega al navegador — verificado con `git grep` y
+revisando el HTML servido antes de dar la funcionalidad por terminada.
+
 **⚠️ NUNCA agregues `"cleanUrls": true`.** Se probó en un despliegue real
 y rompe el sitio por completo (404 en todas las rutas). Motivo: cleanUrls
 elimina la extensión `.php` de la ruta pública real de la función (el
@@ -347,10 +384,31 @@ router ya produce URLs limpias (`/semana/3`, `/curso`).
 `.vercel/`, ignorada por Git). Producción:
 **https://diario-aprendizaje.vercel.app**
 
+**⚠️ NO CAMBIAR ESTE DOMINIO.** La profesora ya tiene el enlace. Nunca
+crees un proyecto nuevo, ni cambies el nombre del proyecto, ni lo
+desconectes/reconectes a un repo distinto — todo eso puede alterar el
+alias `diario-aprendizaje.vercel.app`. `vercel git connect` a este mismo
+`projectId` es seguro (no cambia el dominio, verificado en esta sesión);
+crear un proyecto nuevo NO lo es.
+
+**Despliegue: Git es la fuente de verdad, no la CLI.** Desde esta
+sesión, el proyecto está conectado a
+**github.com/dreiklx/diario-aprendizaje** (repo público, rama `master`).
+Cualquier push a `master` dispara automáticamente un nuevo deployment de
+producción en el mismo dominio — así es como el editor privado (sección
+14) publica los cambios, y así debería hacerse el trabajo manual también
+de ahora en adelante:
+
 ```
-vercel               # deployment de preview
-vercel --prod         # producción (requiere confirmación explícita del usuario)
+git push origin master   # esto ya despliega solo — no hace falta "vercel --prod" después
 ```
+
+`vercel deploy` / `vercel --prod` (subida directa desde la CLI, sin
+pasar por Git) siguen funcionando como método alternativo si hiciera
+falta, pero **no los uses como flujo normal**: crean una deployment que
+no corresponde a ningún commit, así que el historial de Git y lo que
+está en producción se desincronizan. Si alguna vez lo hacés, andá
+seguido con un commit real a `master` para que vuelvan a coincidir.
 
 - `vercel build` **falla en Windows local** con
   `EPERM: operation not permitted, symlink ...@now/build-utils` — el
@@ -406,6 +464,31 @@ vercel --prod         # producción (requiere confirmación explícita del usuar
   Fraunces a `--text-3xl` (pasó con `3.5rem`, se corrigió a `5.5rem` +
   `white-space: nowrap`). Cualquier número/cifra grande en una columna
   de grid con ancho fijo necesita ese mismo colchón + nowrap.
+- **Fine-grained PAT de GitHub con "Contents: Read-only" en vez de "Read
+  and write":** el síntoma es un 403 de la API con el mensaje literal
+  `"Resource not accessible by personal access token"` — la lectura
+  (GET) funciona perfecto (por eso el formulario de edición carga bien),
+  solo la escritura (PUT) falla. La respuesta trae la cabecera
+  `x-accepted-github-permissions: contents=write` que confirma el
+  diagnóstico. La causa casi siempre es que, al crear el token en
+  github.com/settings/personal-access-tokens/new, el dropdown de
+  "Contents" bajo "Repository permissions" quedó en su valor por
+  defecto (Read-only o No access) en vez de elegir explícitamente
+  "Read and write". Hubo que recrear el token dos veces en esta sesión
+  antes de acertar — revisá la pantalla de confirmación de GitHub
+  (lista los permisos otorgados) antes de dar el token por bueno.
+- **⚠️ Nunca pruebes una escritura contra la API de GitHub apuntando
+  directamente al path real de `entries.php` con contenido de prueba.**
+  En esta sesión, un PUT de diagnóstico con contenido `"x"` se mandó
+  por error a `api/data/entries.php` en vez de a un archivo descartable,
+  reemplazando el archivo real por un solo carácter durante ~20
+  segundos hasta que se detectó y se restauró (el commit "x" y el
+  commit de restauración quedan visibles en el historial de Git, a
+  propósito — no se reescribió el historial). Vercel llegó a desplegar
+  esa versión rota brevemente. Para probar la API de GitHub a mano,
+  usá un archivo de prueba fuera de `api/`, o mejor, probá siempre a
+  través del propio flujo de la app (`/editar/semana/N`), que nunca
+  reemplaza el archivo completo — solo el campo editado (ver sección 14).
 
 ## 12. Convenciones de nombres
 
@@ -418,8 +501,11 @@ vercel --prod         # producción (requiere confirmación explícita del usuar
 
 ## 13. Decisiones que no deben romperse (resumen)
 
-1. PHP puro, sin framework, sin base de datos, sin login. (Pedido
-   explícito del usuario — no es un mínimo viable a "mejorar" después.)
+1. PHP puro, sin framework, sin base de datos. La lectura pública sigue
+   sin login; el único login que existe es el del editor privado en
+   `/editar`, pedido explícitamente por el usuario. (No es un mínimo
+   viable a "mejorar" después — ni el sitio público ni el editor deben
+   crecer más allá de lo pedido.)
 2. Todo el código y datos PHP vive bajo `/api` — nunca fuera, o queda
    expuesto como texto plano en producción.
 3. `dev-router.php` es solo para desarrollo local; `api/index.php` sigue
@@ -435,3 +521,204 @@ vercel --prod         # producción (requiere confirmación explícita del usuar
    un `filter: invert()` ni overrides sueltos — cualquier color nuevo se
    declara en los tres bloques (`:root`, `prefers-color-scheme`,
    `[data-theme="dark"]`).
+8. El editor privado (sección 14) solo puede modificar los campos de
+   texto de una entrada en `api/data/entries.php`, nunca otro archivo.
+   La contraseña vive solo como hash (`EDITOR_PASSWORD_HASH`), nunca en
+   texto plano en ningún archivo ni commit. El dominio de producción
+   (`diario-aprendizaje.vercel.app`) no debe cambiar nunca — conectar
+   Git a este mismo proyecto es seguro; crear un proyecto nuevo no lo es.
+
+## 14. Editor privado (`/editar`)
+
+Permite editar el contenido de una entrada semanal desde el navegador,
+sin tocar código, con el cambio llegando realmente al repositorio y al
+sitio en producción. Construido en esta sesión; ver la retrospectiva de
+por qué esta arquitectura y no otra en la sección "Si la arquitectura
+propuesta no es posible" más abajo.
+
+### Flujo completo
+
+```
+Usuario entra a /editar
+  → sin cookie válida: formulario de contraseña
+  → password_verify() contra EDITOR_PASSWORD_HASH (server-side, bcrypt)
+  → correcta: cookie firmada (HMAC-SHA256, 4h) → lista de semanas
+Usuario abre /editar/semana/N
+  → GET a la API de contenidos de GitHub: contenido + sha ACTUALES de
+    entries.php (no la copia local empaquetada en el deployment)
+  → formulario prellenado con los campos editables de esa entrada,
+    más un input oculto con el sha capturado en este momento
+Usuario edita y guarda (POST)
+  → valida CSRF (token derivado de la propia cookie de sesión)
+  → vuelve a traer el archivo completo de GitHub (versión más reciente)
+  → aplica SOLO los campos editables de la semana N sobre esa copia
+  → PUT a GitHub con el sha capturado al abrir el formulario
+      → si nadie más tocó el archivo mientras tanto: 200, commit real
+      → si alguien sí lo tocó: 409, y se muestra el conflicto en vez
+        de sobrescribir en silencio
+  → GitHub dispara su webhook a Vercel (repo conectado, sección 10)
+  → Vercel construye y despliega — mismo projectId, mismo dominio
+  → la página de guardado confirma "Cambios enviados correctamente"
+```
+
+No hay `session_start()` de PHP en ningún lado: una función serverless
+de Vercel no garantiza el mismo disco/proceso entre peticiones, así que
+las sesiones basadas en archivos no son fiables ahí. La sesión es
+enteramente la cookie firmada — ver `api/lib/auth.php`.
+
+### Piezas, una por archivo
+
+- **`api/lib/auth.php`** — `verify_editor_password()` (bcrypt),
+  `issue_editor_session_token()` / `is_editor_authenticated()` (cookie
+  HMAC-SHA256, payload `{exp}`, TTL 4h), `set_editor_cookie()` /
+  `clear_editor_cookie()` (HttpOnly, SameSite=Strict, Secure solo si la
+  petición ya es HTTPS — así funciona igual en local sobre `http://` y
+  en producción sobre `https://`), `editor_csrf_token()` /
+  `verify_editor_csrf()` (token derivado de la cookie con HMAC, sin
+  almacenamiento aparte).
+- **`api/lib/github.php`** — cliente mínimo de la API de contenidos de
+  GitHub vía `file_get_contents()` + `stream_context_create()` (sin
+  curl, para no depender de esa extensión). Dos funciones:
+  `github_get_entries_file()` (GET, devuelve contenido + sha) y
+  `github_update_entries_file()` (PUT condicionado al sha, para el
+  control de concurrencia). La ruta del archivo (`GITHUB_ENTRIES_PATH`)
+  y el repo (`GITHUB_REPO`) son constantes fijas en el código — el
+  cliente no acepta ninguna ruta que venga del navegador, así que no
+  hay forma de que el editor toque otro archivo aunque alguien lo
+  intentara.
+- **`api/lib/entries_editor.php`** — lee y reescribe `entries.php` de
+  forma quirúrgica: separa todo lo que hay antes de `return [` (el
+  docblock, tal cual) del cuerpo del arreglo, y regenera solo el cuerpo
+  en el mismo estilo escrito a mano en el resto del proyecto (comillas
+  simples para campos cortos, dobles con `\n` literal para los de texto
+  largo — nunca `var_export()`, que destruiría el formato). El contenido
+  fresco de GitHub se interpreta con `eval()`; ver la nota de seguridad
+  en el docblock del archivo sobre por qué es seguro en este caso
+  concreto (mismo nivel de confianza que un `require` normal, porque
+  ese archivo solo se puede escribir a través de este mismo editor).
+- **`api/lib/editor_actions.php`** — controladores de las rutas.
+  Reciben `$course` explícito (nunca `$GLOBALS`), renderizan su propia
+  respuesta y terminan la petición.
+- **`api/templates/pages/editor-*.php` + `assets/css/editor.css`** —
+  vista. Reutiliza los mismos componentes/tokens del sitio público
+  (`status-badge`, tipografía, modo claro/oscuro); `editor.css` se
+  carga solo cuando `layout.php` recibe `'private' => true` (headers
+  `X-Robots-Tag: noindex` y `Cache-Control: no-store` también van ahí).
+
+### Qué puede y qué no puede modificar
+
+Campos editables de una entrada (`EDITABLE_ENTRY_FIELDS` en
+`entries_editor.php`): `title`, `theme`, `reflexion`, `aprendizaje`,
+`cuestionamiento`, `aplicacion`. **No** son editables desde el panel:
+`week`, `week_start`, `class_date` (son el modelo de calendario, no
+contenido de reflexión — cambiarlos ahí podría romper el cálculo de
+estado) ni `evidencia` (fuera de alcance, no pedido). Ningún otro
+archivo del repositorio es alcanzable desde el editor.
+
+### Medidas de seguridad implementadas
+
+- Contraseña nunca en texto plano: solo su hash bcrypt
+  (`EDITOR_PASSWORD_HASH`), comparado con `password_verify()`
+  (timing-safe por diseño).
+- Comparaciones de firmas/tokens con `hash_equals()` (timing-safe),
+  nunca `===` sobre secretos.
+- Cookie de sesión `HttpOnly` (inaccesible desde JS) + `SameSite=Strict`
+  (no viaja en peticiones cross-site) + `Secure` en producción.
+- CSRF: token derivado de la cookie de sesión, verificado en el POST de
+  guardado.
+- Freno de fuerza bruta mínimo: `usleep(400_000)` tras un intento
+  fallido, sumado al costo intrínseco de bcrypt (~100-300ms). No hay
+  bloqueo por IP ni contador de intentos — necesitaría un almacén de
+  estado que el proyecto deliberadamente no tiene. Aceptado como
+  suficiente para un diario personal de una sola persona, no para un
+  objetivo de alto valor.
+- Todo el texto que entra por el editor pasa por `e()` al mostrarse en
+  el sitio público — el mismo mecanismo de escape que ya usa cualquier
+  otro contenido, no hay una ruta de salida nueva sin escapar.
+- El token de GitHub tiene permiso mínimo: *fine-grained*, restringido
+  a un único repo, solo `Contents: Read and write` — no puede tocar
+  otros repos, Actions, Issues, ni configuración del repo.
+- `GITHUB_TOKEN`, `EDITOR_PASSWORD_HASH` y `SESSION_SECRET` viven solo
+  como variables de entorno "Sensitive" en Vercel — nunca en el repo,
+  nunca en el HTML/JS servido (verificado con `git grep` y revisando el
+  HTML antes de dar la tarea por terminada), nunca en un mensaje de
+  error mostrado al usuario (los `catch` de `editor_actions.php`
+  muestran el código de estado HTTP de GitHub, nunca la respuesta cruda
+  completa ni el token).
+
+### Cómo probar el editor localmente
+
+`php -S localhost:8000 dev-router.php` no tiene acceso a las variables
+de entorno de Vercel — hay que exportarlas en la misma sesión de shell
+antes de levantar el servidor:
+
+```bash
+export EDITOR_PASSWORD_HASH='<hash bcrypt real>'
+export SESSION_SECRET='<64 hex chars>'
+export GITHUB_TOKEN='<fine-grained PAT>'
+php -S localhost:8000 dev-router.php
+```
+
+Sin `GITHUB_TOKEN` (o con uno inválido/sin permiso de escritura), el
+login y la navegación funcionan igual — solo falla, con un mensaje
+claro y sin traza de error de PHP, la carga/guardado del contenido de
+una semana. Es una forma útil de probar el manejo de errores sin tocar
+GitHub.
+
+Para una prueba real de guardado, hacé el ciclo completo edición →
+verificación → reversión (así se probó en esta sesión):
+1. Cargá `/editar/semana/N`, anotá el `sha` que trae el formulario.
+2. Guardá un valor de prueba claramente marcado como tal.
+3. Verificá con un GET directo a la API de GitHub que **solo** cambió
+   el campo esperado (`diff` contra el archivo local sin tocar).
+4. Esperá el redeploy (unos 15-30s) y confirmá en producción.
+5. Volvé a `/editar/semana/N` (el `sha` ya cambió, el formulario trae
+   el nuevo automáticamente) y guardá el valor original para revertir.
+6. Confirmá otra vez con `diff` que quedó byte a byte igual que antes.
+
+### Rotar o cambiar secretos
+
+```bash
+# Contraseña nueva:
+php -r "echo password_hash('nueva-contraseña', PASSWORD_BCRYPT);"
+vercel env rm EDITOR_PASSWORD_HASH production --yes
+vercel env add EDITOR_PASSWORD_HASH production   # pegar el hash cuando lo pida
+
+# Token de GitHub nuevo (si se filtró o expiró):
+# 1. Revocarlo en github.com/settings/personal-access-tokens
+# 2. Crear uno nuevo con el mismo permiso mínimo (Contents: Read and write,
+#    solo dreiklx/diario-aprendizaje)
+vercel env rm GITHUB_TOKEN production --yes
+vercel env add GITHUB_TOKEN production
+```
+
+Repetir con `preview` en vez de `production` para el otro entorno.
+Después de rotar, no hace falta redesplegar a mano — el próximo push (o
+el próximo uso del editor) ya usa el valor nuevo, porque Vercel inyecta
+las variables de entorno en cada invocación de la función, no al build.
+
+### Decisión: GitHub API + Git conectado, no un sistema paralelo
+
+El pedido original era `PHP → GitHub API → commit → Vercel`. Esa
+arquitectura resultó totalmente viable, pero necesitó un paso previo
+que no existía: **el proyecto no estaba conectado a ningún repositorio
+de Git** (los despliegues hasta ahora se habían hecho subiendo archivos
+directo con `vercel deploy`, sin Git de por medio — confirmado
+revisando `.vercel/project.json` y el deployment en producción, que no
+tenía ninguna fuente de Git asociada). Se resolvió así, en este orden:
+
+1. `gh repo create diario-aprendizaje --public --source=.` — repo
+   nuevo, público (decisión del usuario), bajo su cuenta de GitHub ya
+   autenticada localmente.
+2. `git push -u origin master`.
+3. `vercel git connect https://github.com/dreiklx/diario-aprendizaje.git`
+   — conecta el repo al **proyecto existente** (mismo `projectId`, no
+   uno nuevo). Se verificó explícitamente con `vercel inspect` antes y
+   después que el alias de producción no cambió.
+4. Se confirmó que un push normal a `master` dispara un deployment de
+   producción automático (Vercel ya tiene su GitHub App con acceso al
+   repo desde el paso 1, al ser el dueño de ambos).
+
+No se creó ningún sistema paralelo de despliegue (nada de subir
+archivos manualmente vía la API de Vercel) — el editor solo hace un
+commit a GitHub; el redeploy es 100% el mecanismo nativo de Vercel.

@@ -233,6 +233,17 @@ main {
   color: var(--color-text-faint);
 }
 
+.site-footer__editor-link {
+  margin-left: var(--space-2);
+  color: var(--color-text-faint);
+  text-decoration: none;
+  border-bottom: 1px dotted currentColor;
+}
+
+.site-footer__editor-link:hover {
+  color: var(--color-text-muted);
+}
+
 /* — Sección hero — */
 .hero {
   padding-block: var(--space-9) var(--space-8);

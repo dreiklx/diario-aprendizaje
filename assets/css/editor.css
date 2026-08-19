@@ -1,0 +1,228 @@
+/**
+ * Estilos exclusivos de /editar. Se cargan solo en páginas privadas
+ * (layout.php, variable $private) para no añadir peso al sitio público.
+ * Reutiliza los tokens y componentes existentes (status-badge, botones
+ * de enlace, etc.) — esto es una vista más funcional del mismo sistema
+ * de diseño, no una interfaz aparte.
+ */
+
+.editor {
+  max-width: var(--reading-width);
+  margin-inline: auto;
+  padding-inline: var(--space-5);
+  padding-block: var(--space-9) var(--space-10);
+}
+
+.editor__eyebrow {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-3);
+}
+
+.editor__header {
+  margin-bottom: var(--space-7);
+}
+
+.editor__header h1 {
+  font-size: var(--text-3xl);
+}
+
+.editor__dates {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.editor__dates-sep {
+  color: var(--color-border-strong);
+}
+
+/* — Formularios — */
+.editor-field {
+  margin-bottom: var(--space-5);
+}
+
+.editor-field label {
+  display: block;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-2);
+}
+
+.editor-field__hint {
+  display: block;
+  font-size: var(--text-xs);
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: normal;
+  color: var(--color-text-faint);
+  margin-top: var(--space-1);
+}
+
+.editor-field input[type='text'],
+.editor-field input[type='password'],
+.editor-field textarea {
+  width: 100%;
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1.5px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  line-height: var(--leading-relaxed);
+  transition: border-color var(--duration-fast) var(--ease-standard);
+}
+
+.editor-field textarea {
+  resize: vertical;
+  min-height: 7rem;
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+}
+
+.editor-field input:focus,
+.editor-field textarea:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+.editor-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  margin-top: var(--space-8);
+  padding-top: var(--space-6);
+  border-top: 1px solid var(--color-border);
+}
+
+.editor-button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-bg);
+  background: var(--color-accent);
+  border: 1.5px solid var(--color-accent);
+  border-radius: var(--radius-full);
+  padding: 0.65em 1.4em;
+  cursor: pointer;
+  transition: opacity var(--duration-fast) var(--ease-standard);
+}
+
+.editor-button:hover {
+  opacity: 0.85;
+}
+
+.editor-link {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--color-text-muted);
+  text-decoration: none;
+}
+
+.editor-link:hover {
+  color: var(--color-accent);
+}
+
+/* — Mensajes de estado — */
+.editor-message {
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-6);
+  font-size: var(--text-sm);
+  line-height: var(--leading-relaxed);
+}
+
+.editor-message--success {
+  background: var(--color-completed-soft);
+  color: var(--color-completed);
+}
+
+.editor-message--error {
+  background: var(--color-available-soft);
+  color: var(--color-available);
+}
+
+/* — Login — */
+.editor-login {
+  max-width: 26rem;
+  margin-inline: auto;
+  padding-inline: var(--space-5);
+  padding-block: var(--space-12) var(--space-10);
+}
+
+.editor-login h1 {
+  font-size: var(--text-2xl);
+  margin-bottom: var(--space-2);
+}
+
+.editor-login__lead {
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-6);
+}
+
+.editor-login__back {
+  margin-top: var(--space-6);
+}
+
+.editor-footer-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.editor-logout-form {
+  display: inline;
+}
+
+.editor-logout-button {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+}
+
+/* — Lista de semanas — */
+.editor-weeks {
+  border-top: 1px solid var(--color-border);
+}
+
+.editor-weeks__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-2);
+  border-bottom: 1px solid var(--color-border);
+  text-decoration: none;
+  transition: background-color var(--duration-fast) var(--ease-standard);
+}
+
+.editor-weeks__item:hover {
+  background: var(--color-surface-sunken);
+}
+
+.editor-weeks__label {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+}
+
+.editor-weeks__number {
+  color: var(--color-text-faint);
+  font-variant-numeric: tabular-nums;
+}

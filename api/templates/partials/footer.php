@@ -6,6 +6,9 @@
       <?= e($course['code']) ?> — <?= e($course['name']) ?>, <?= e($course['subtitle']) ?><br>
       <?= e($course['term']) ?>
     </p>
-    <p class="site-footer__note">Diario de aprendizaje construido con PHP puro, sin base de datos.</p>
+    <p class="site-footer__note">
+      Diario de aprendizaje construido con PHP puro, sin base de datos.
+      <a class="site-footer__editor-link" href="/editar">Editar</a>
+    </p>
   </div>
 </footer>

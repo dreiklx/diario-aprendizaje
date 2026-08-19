@@ -4,11 +4,18 @@
  * @var array $course
  * @var string|null $pageTitle
  * @var string|null $pageDescription
+ * @var bool|null $private   true en páginas del editor: sin índice, sin caché.
  */
 
 $siteTitle = 'Diario de Aprendizaje';
 $fullTitle = $pageTitle ? "{$pageTitle} · {$siteTitle}" : "{$siteTitle} · {$course['code']}";
 $description = $pageDescription ?? $course['description'];
+$private ??= false;
+
+if ($private) {
+    header('X-Robots-Tag: noindex, nofollow');
+    header('Cache-Control: no-store, private');
+}
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -41,6 +48,9 @@ $description = $pageDescription ?? $course['description'];
 <link rel="stylesheet" href="<?= asset_url('css/base.css') ?>">
 <link rel="stylesheet" href="<?= asset_url('css/layout.css') ?>">
 <link rel="stylesheet" href="<?= asset_url('css/components.css') ?>">
+<?php if ($private): ?>
+<link rel="stylesheet" href="<?= asset_url('css/editor.css') ?>">
+<?php endif; ?>
 </head>
 <body>
 <a class="skip-link" href="#contenido">Saltar al contenido</a>

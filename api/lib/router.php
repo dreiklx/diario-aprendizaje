@@ -25,5 +25,17 @@ function resolve_route(string $requestUri): array
         return ['page' => 'week', 'params' => ['week' => (int) $matches[1]]];
     }
 
+    if ($path === '/editar') {
+        return ['page' => 'editor-home', 'params' => []];
+    }
+
+    if ($path === '/editar/logout') {
+        return ['page' => 'editor-logout', 'params' => []];
+    }
+
+    if (preg_match('#^/editar/semana/(\d+)$#', $path, $matches)) {
+        return ['page' => 'editor-week', 'params' => ['week' => (int) $matches[1]]];
+    }
+
     return ['page' => 'not-found', 'params' => []];
 }

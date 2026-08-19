@@ -12,6 +12,7 @@ require_once __DIR__ . '/lib/dates.php';
 require_once __DIR__ . '/lib/entries.php';
 require_once __DIR__ . '/lib/render.php';
 require_once __DIR__ . '/lib/router.php';
+require_once __DIR__ . '/lib/editor_actions.php';
 
 $course = require __DIR__ . '/data/course.php';
 $route = resolve_route($_SERVER['REQUEST_URI'] ?? '/');
@@ -64,6 +65,18 @@ switch ($route['page']) {
             'pageTitle' => 'Semana ' . $week . ($entry['title'] ? ' — ' . $entry['title'] : ''),
             'pageDescription' => $entry['theme'] ?? $course['description'],
         ]);
+        break;
+
+    case 'editor-home':
+        handle_editor_home($course);
+        break;
+
+    case 'editor-logout':
+        handle_editor_logout();
+        break;
+
+    case 'editor-week':
+        handle_editor_week($course, $route['params']['week']);
         break;
 
     default:
