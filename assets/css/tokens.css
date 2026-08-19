@@ -4,15 +4,31 @@
  * Breakpoints usados en todo el proyecto (no hay variable CSS para esto,
  * los media queries no pueden leer custom properties):
  *   480px  — móvil grande
+ *   560px  — nav pasa de columna a fila
+ *   640px  — overview/timeline pasan a fila
  *   768px  — tablet
  *   1024px — laptop
  *   1440px — escritorio grande
  *
  * Mobile-first: los estilos base son para móvil, los media query usan
  * min-width para ampliar hacia pantallas grandes.
+ *
+ * TEMA CLARO/OSCURO
+ * ------------------
+ * La paleta clara vive en :root. La paleta oscura se activa de dos
+ * formas que conviven a propósito:
+ *   1. @media (prefers-color-scheme: dark) — respeta la preferencia del
+ *      sistema operativo mientras el usuario no haya elegido nada.
+ *   2. :root[data-theme="dark"] / [data-theme="light"] — el toggle
+ *      manual (assets/js/main.js) escribe data-theme en <html> y gana
+ *      siempre sobre la preferencia del sistema.
+ * Cualquier color nuevo debe declararse en AMBOS bloques si depende del
+ * tema. Nunca un color fijo fuera de esta capa de tokens (ver CLAUDE.md).
  */
 
 :root {
+  color-scheme: light;
+
   /* — Color — paleta editorial, cálida, sobria.
      Inspirada muy sutilmente en el azul institucional de la UCR, sin
      copiar su identidad literal. */
@@ -21,7 +37,7 @@
   --color-surface-sunken: #f2ede2;
   --color-text: #1c1a17;
   --color-text-muted: #6b6459;
-  --color-text-faint: #9a9284;
+  --color-text-faint: #766c5a;
   --color-border: #e3dccc;
   --color-border-strong: #cfc6b2;
 
@@ -37,6 +53,7 @@
   --color-upcoming-soft: #efece2;
 
   --color-focus-ring: #1f3a5f;
+  --color-overlay: rgb(28 26 23 / 4%);
 
   /* — Tipografía — */
   --font-display: 'Fraunces', 'Iowan Old Style', 'Palatino Linotype', serif;
@@ -73,17 +90,77 @@
   --space-12: 7rem;
 
   /* — Bordes y forma — */
-  --radius-sm: 2px;
-  --radius-md: 4px;
+  --radius-sm: 3px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
   --radius-full: 999px;
 
   /* — Movimiento — */
   --duration-fast: 150ms;
   --duration-base: 250ms;
   --duration-slow: 500ms;
+  --duration-theme: 300ms;
   --ease-standard: cubic-bezier(0.2, 0.6, 0.2, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 
   /* — Layout — */
   --content-width: 1180px;
   --reading-width: 720px;
+}
+
+/* Paleta oscura — sigue la preferencia del sistema mientras el usuario
+   no haya elegido manualmente (por eso :not([data-theme="light"])). */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+    --color-bg: #16130f;
+    --color-surface: #1e1a14;
+    --color-surface-sunken: #262019;
+    --color-text: #f2ead9;
+    --color-text-muted: #a89c86;
+    --color-text-faint: #948a76;
+    --color-border: #332c22;
+    --color-border-strong: #4a4132;
+
+    --color-accent: #8fb4de;
+    --color-accent-ink: #cfe0f2;
+    --color-accent-soft: #1f2d3d;
+
+    --color-completed: #7fbf93;
+    --color-completed-soft: #1c2a20;
+    --color-available: #d99a5b;
+    --color-available-soft: #2e2115;
+    --color-upcoming: #a89c86;
+    --color-upcoming-soft: #241f18;
+
+    --color-focus-ring: #8fb4de;
+    --color-overlay: rgb(0 0 0 / 20%);
+  }
+}
+
+/* Toggle manual — gana siempre, en cualquier dirección. */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --color-bg: #16130f;
+  --color-surface: #1e1a14;
+  --color-surface-sunken: #262019;
+  --color-text: #f2ead9;
+  --color-text-muted: #a89c86;
+  --color-text-faint: #948a76;
+  --color-border: #332c22;
+  --color-border-strong: #4a4132;
+
+  --color-accent: #8fb4de;
+  --color-accent-ink: #cfe0f2;
+  --color-accent-soft: #1f2d3d;
+
+  --color-completed: #7fbf93;
+  --color-completed-soft: #1c2a20;
+  --color-available: #d99a5b;
+  --color-available-soft: #2e2115;
+  --color-upcoming: #a89c86;
+  --color-upcoming-soft: #241f18;
+
+  --color-focus-ring: #8fb4de;
+  --color-overlay: rgb(0 0 0 / 20%);
 }

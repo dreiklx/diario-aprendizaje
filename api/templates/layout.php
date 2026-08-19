@@ -14,10 +14,23 @@ $description = $pageDescription ?? $course['description'];
 <html lang="es">
 <head>
 <meta charset="UTF-8">
+<script>
+/* Se ejecuta antes de pintar para evitar un flash del tema equivocado.
+   Ver CLAUDE.md, sección "Modo claro/oscuro". */
+(function () {
+  try {
+    var stored = localStorage.getItem('theme');
+    var theme = (stored === 'light' || stored === 'dark')
+      ? stored
+      : (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    document.documentElement.setAttribute('data-theme', theme);
+  } catch (err) {}
+  document.documentElement.classList.add('js');
+})();
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title><?= e($fullTitle) ?></title>
 <meta name="description" content="<?= e($description) ?>">
-<meta name="color-scheme" content="light">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='14' fill='%23faf7f0' stroke='%231f3a5f' stroke-width='2'/><text x='16' y='21' font-family='Georgia,serif' font-size='13' fill='%231f3a5f' text-anchor='middle'>SR</text></svg>">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">

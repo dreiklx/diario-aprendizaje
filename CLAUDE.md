@@ -59,7 +59,7 @@ assets/
     base.css                   Reset + estilos de elementos base + a11y
     layout.css                  Nav, footer, contenedores, disposición de secciones
     components.css               Badge, progress bar, timeline, artículo de semana, pager
-  js/main.js                  Navegación por teclado (← →) entre semanas
+  js/main.js                  Toggle de tema, revelado al scroll (IntersectionObserver), navegación por teclado (← →)
 
 vercel.json                  Runtime PHP + rewrite catch-all
 dev-router.php               Router SOLO para `php -S` local (ver sección 8)
@@ -87,21 +87,44 @@ pasadas a `render_page()` → plantilla. Ninguna plantilla lee
 
 ## 4. Cómo agregar o completar una entrada semanal
 
-Edita **solo** `api/data/entries.php`. Busca el arreglo con el
-`number` correspondiente y completa los campos (`title`, `theme`,
-`reflexion`, `aprendizaje`, `cuestionamiento`, `aplicacion`,
-`evidencia`). No toques ningún otro archivo.
+Edita **solo** `api/data/entries.php`. Busca el arreglo con el `week`
+correspondiente y completa los campos (`title`, `theme`, `reflexion`,
+`aprendizaje`, `cuestionamiento`, `aplicacion`, `evidencia`). No toques
+ningún otro archivo.
 
 - El estado (`próxima` / `disponible` / `completada`) se calcula solo:
   en cuanto `reflexion` deja de estar vacío, la entrada pasa a
   `completada`. No hay un campo `status` que se pueda desincronizar.
 - El progreso (`X / 15`) se recalcula solo a partir de esa misma lista.
   Nunca escribas un porcentaje o conteo a mano en ninguna plantilla.
-- Las fechas son la única fuente de verdad de "pasado vs. futuro": están
-  en `date` (ISO `YYYY-MM-DD`) y en ningún otro lugar. Si el calendario
-  real de la profesora difiere de las fechas semanales generadas
-  (lunes consecutivos desde `semester_start` en `api/data/course.php`),
-  edita el campo `date` de la entrada afectada — no hay que tocar lógica.
+
+### Semana académica vs. día de clase — dos fechas, no una
+
+Cada entrada tiene **dos** fechas distintas, a propósito:
+
+- `week_start` — el **lunes** en que arranca esa semana académica.
+- `class_date` — el día real de la sesión de clase (los **miércoles**
+  en este curso). No asumas que coinciden: la semana empieza el lunes,
+  la clase es el miércoles.
+
+Esto importa porque cada cálculo usa la fecha correcta a propósito, no
+la que sea más conveniente:
+
+- `entry_status()` (`api/lib/entries.php`) compara contra **`class_date`**
+  — hasta que no hubo clase, no hay nada que reflexionar, así que el
+  estado "disponible" no se activa el lunes, se activa el miércoles.
+- `current_week_number()` compara contra **`week_start`** — la semana ya
+  está en curso desde el lunes, aunque la clase sea hasta el miércoles.
+- `format_week_range()` / `format_class_short()` (`api/lib/dates.php`)
+  formatean cada una para su propio uso: el rango completo de la semana
+  ("10 — 16 AGO 2026") y la fecha corta de clase con día
+  ("Miércoles 12 AGO"). Nunca dupliques ese formato a mano en una
+  plantilla — siempre pasa por estas funciones.
+
+Si el calendario real de la profesora difiere de las fechas generadas
+(lunes consecutivos desde `semester_start` en `api/data/course.php`,
+clase siempre dos días después), edita `week_start`/`class_date` de la
+entrada afectada directamente — no hay que tocar ninguna lógica.
 
 ## 5. Reglas de PHP
 
@@ -140,12 +163,82 @@ Dirección: editorial cálido, no "dashboard", no plantilla de curso.
   `.timeline` en `components.css`). No lo conviertas en una grilla de
   tarjetas — el hilo vertical con nodos de estado es intencional.
 - **Sin:** gradientes, glassmorphism, sombras pronunciadas, iconos
-  genéricos de librería, animaciones decorativas. El único movimiento
-  con propósito es el fill de la barra de progreso y las transiciones de
-  hover/foco (todas respetan `prefers-reduced-motion`).
+  genéricos de librería, animaciones decorativas porque sí. El
+  movimiento (fill de progreso, revelado al hacer scroll, transición de
+  tema, hover/foco) siempre respeta `prefers-reduced-motion` — ver
+  sección 6-bis.
 - **No inventar contenido académico:** las reflexiones del diario son
   del estudiante. Si un campo no tiene contenido, se muestra un estado
-  "pendiente" explícito — nunca un texto de relleno inventado.
+  "pendiente" explícito — nunca un texto de relleno inventado. La
+  semana 1 (`api/data/entries.php`) ya tiene una reflexión real escrita
+  por el estudiante; es la referencia de tono para cualquier entrada
+  futura: primera persona, natural, nada de lenguaje académico
+  artificial ("hoy en la clase...", no "en el marco de la presente
+  sesión...").
+
+## 6-bis. Modo claro/oscuro
+
+Sistema completo de tokens, no una inversión de colores. Vive en
+`assets/css/tokens.css`: la paleta clara está en `:root`, la paleta
+oscura se declara **dos veces** y debe mantenerse igual en ambas copias:
+
+1. `@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { ... } }`
+   — sigue el sistema operativo mientras el usuario no haya elegido nada.
+2. `:root[data-theme="dark"] { ... }` — el toggle manual, siempre gana.
+
+Cualquier color nuevo que dependa del tema se declara en **ambos**
+bloques a la vez (y en `:root` para el valor claro). Nunca un color
+fijo fuera de esta capa — la única excepción deliberada es
+`.skip-link` en `base.css` (overlay aislado que nunca se mezcla con el
+fondo de la página, así que no necesita adaptarse entre temas).
+
+**Cómo se activa:**
+- `api/templates/layout.php` tiene un `<script>` inline, **antes** de
+  cualquier CSS, que lee `localStorage.theme` (o `prefers-color-scheme`
+  si no hay nada guardado) y hace `document.documentElement.setAttribute
+  ('data-theme', …)` de forma síncrona. Esto evita el flash del tema
+  equivocado al cargar — no lo muevas a `main.js` (que es `defer` y
+  correría demasiado tarde) ni lo hagas async.
+- Ese mismo script agrega la clase `.js` a `<html>` — la usa el sistema
+  de revelado progresivo (ver abajo).
+- `assets/js/main.js` maneja el clic del botón `#theme-toggle` (en
+  `partials/nav.php`): alterna el atributo y lo persiste en
+  `localStorage.theme`.
+- `color-scheme` (light/dark) se declara junto a cada bloque de tokens
+  para que los controles nativos del navegador (scrollbar, inputs) usen
+  el tema correcto automáticamente.
+
+**Contraste:** los colores de estado (completada/disponible/próxima) y
+`--color-text-faint` están calibrados a ≥4.5:1 en AMBOS temas (script de
+verificación ad-hoc con la fórmula de luminancia relativa WCAG — no hay
+un test automatizado permanente para esto). Si cambias un color de
+tema, vuelve a calcular el contraste antes de dar por buena la sesión.
+
+## 6-ter. Animaciones y revelado progresivo
+
+- **Revelado al hacer scroll / al cargar:** cualquier elemento con la
+  clase `.reveal` empieza invisible (`opacity:0`, `translateY(14px)`)
+  **solo si** `<html>` tiene la clase `.js` (ver arriba). Sin JS, `.reveal`
+  nunca se oculta — degradación seguro por diseño, revisar antes de
+  quitar esa dependencia de `.js`. `assets/js/main.js` usa un único
+  `IntersectionObserver` (`rootMargin: '0px 0px -8% 0px'`) para agregar
+  `.is-visible` la primera vez que cada elemento entra al viewport, y
+  deja de observarlo (no se re-anima al volver a hacer scroll). Los
+  elementos ya visibles al cargar (hero, nav) se revelan casi
+  inmediatamente porque el observer los evalúa apenas se registra.
+- **Stagger:** el retraso escalonado (hero, filas de timeline) se
+  calcula en PHP e inyecta como `style="transition-delay: …ms"` directo
+  en la plantilla — no hay `:nth-child` mágico que mantener sincronizado
+  con el número de elementos.
+- **`prefers-reduced-motion: reduce`:** dos capas de seguridad en
+  `base.css` — `.reveal` se fuerza a visible sin transición, y una regla
+  global reduce cualquier `animation`/`transition` restante a 0.01ms.
+- **Cross-fade de tema:** `body` y una lista explícita de selectores en
+  `base.css` (nav, footer, badges, timeline, etc.) transicionan
+  `background-color`/`color`/`border-color` en `--duration-theme`
+  (300ms) al alternar claro/oscuro. Si agregas un componente nuevo con
+  colores de tema, agrégalo a esa lista si quieres que cruce suave en
+  vez de cambiar de golpe.
 
 ## 7. CSS: organización y convenciones
 
@@ -193,15 +286,22 @@ proyecto). Antes de dar por buena una sesión de trabajo:
 2. Levantar `dev-router.php` y comprobar con `curl` los códigos de
    estado de: `/`, `/curso`, `/semana/1`, `/semana/15`, `/semana/99`
    (debe dar 404), `/assets/css/tokens.css`.
-3. Revisión visual en al menos 390px, 768px y 1440px. Si usas Chrome
-   headless para capturas (`chrome --headless --screenshot
-   --window-size=W,H url`), ten en cuenta el bug conocido descrito en la
-   sección 11 antes de diagnosticar un "recorte de texto" en anchos
-   menores a ~500px como si fuera un bug real del sitio.
-4. Si tocas colores de estado (completada/disponible/próxima), vuelve a
-   calcular el contraste texto-sobre-fondo-soft; el objetivo es ≥4.5:1
-   porque el texto de los badges es pequeño (`--text-xs`, 12px) y no
-   califica como "texto grande" en WCAG AA.
+3. Revisión visual en al menos 600px, 768px y 1440px (evita <500px con
+   Chrome headless, ver sección 11). Revisa **ambos temas**: para forzar
+   uno en headless sin depender del tema del sistema operativo, usa
+   `--blink-settings=preferredColorScheme=1` (claro) o `=2` (oscuro) —
+   en la práctica solo `=1` se comprobó confiable en esta sesión; para
+   oscuro es más seguro simplemente no pasar el flag si el SO ya está en
+   modo oscuro.
+4. Si tocas colores de estado (completada/disponible/próxima) o
+   `--color-text-faint`, vuelve a calcular el contraste texto-sobre-fondo
+   en AMBOS temas; el objetivo es ≥4.5:1 porque son textos pequeños
+   (`--text-xs`/`--text-sm`) y no califican como "texto grande" en WCAG AA.
+5. Prueba el toggle de tema: cambia de claro a oscuro y viceversa,
+   recarga la página y confirma que el tema elegido persiste (localStorage).
+6. Con JavaScript deshabilitado (o revisando el HTML crudo), confirma
+   que todo el contenido con `.reveal` sigue siendo visible — es la
+   prueba de que la degradación seguro del revelado progresivo funciona.
 
 ## 10. Cómo desplegar (Vercel + PHP)
 
@@ -291,14 +391,29 @@ vercel --prod         # producción (requiere confirmación explícita del usuar
   layout o un partial reporta "Undefined variable", casi siempre es
   porque se llamó a `render_partial()`/`render_page()` sin pasar la
   variable en el array `$data`, no un problema del motor de plantillas.
+- **`.timeline` usa `grid-template-areas`, nunca posicionamiento
+  absoluto.** Se intentó un hilo vertical con nodos posicionados
+  `position: absolute` sobre una línea `::before` y la matemática de
+  márgenes anidados no cuadró (el nodo quedaba desalineado ~1rem de la
+  línea). Se descartó por otro enfoque robusto: grid-area para node/
+  index/body/status, igual que el resto del sitio — sin coordenadas
+  calculadas a mano. Si en el futuro se quiere retomar la idea del hilo
+  continuo, prototipar visualmente primero (con capturas reales), no a
+  ciegas.
+- **Columnas de ancho fijo + números grandes = riesgo de wrap.**
+  `.timeline__index` (el número "01", "02"…) se parte en dos líneas si
+  la columna de grid es más angosta que el ancho real del glyph en
+  Fraunces a `--text-3xl` (pasó con `3.5rem`, se corrigió a `5.5rem` +
+  `white-space: nowrap`). Cualquier número/cifra grande en una columna
+  de grid con ancho fijo necesita ese mismo colchón + nowrap.
 
 ## 12. Convenciones de nombres
 
 - Archivos PHP y CSS: `kebab-case` (`status-badge.php`, `not-found.php`).
 - Clases CSS: BEM-ish, ver sección 7.
 - Claves de arrays de datos: `snake_case` en inglés técnico
-  (`semester_start`) pero valores de contenido en español (es el idioma
-  del sitio).
+  (`semester_start`, `week_start`, `class_date`) pero valores de
+  contenido en español (es el idioma del sitio).
 - Rutas: en español, en minúsculas (`/semana/3`, `/curso`).
 
 ## 13. Decisiones que no deben romperse (resumen)
@@ -314,3 +429,9 @@ vercel --prod         # producción (requiere confirmación explícita del usuar
    escritos a mano en una plantilla.
 5. Dos familias tipográficas (Fraunces + Inter), paleta en variables,
    timeline como componente central del diario.
+6. `week_start` (lunes) y `class_date` (miércoles) son fechas distintas
+   a propósito — no las colapses en un solo campo `date`.
+7. El modo oscuro es un sistema de tokens completo (sección 6-bis), no
+   un `filter: invert()` ni overrides sueltos — cualquier color nuevo se
+   declara en los tres bloques (`:root`, `prefers-color-scheme`,
+   `[data-theme="dark"]`).

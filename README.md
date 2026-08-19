@@ -5,7 +5,8 @@ Realidad Nacional II — "Producción y Desarrollo"** (Universidad de Costa
 Rica, Sede del Caribe, II Ciclo 2026).
 
 Sitio editorial de una sola persona: 15 entradas semanales, sin login,
-sin base de datos, sin panel de administración.
+sin base de datos, sin panel de administración. Incluye modo claro/oscuro
+persistente y revelado progresivo del contenido al hacer scroll.
 
 ## Stack
 
@@ -36,16 +37,19 @@ del servidor embebido directamente — ver `CLAUDE.md` sección 8.
 
 ## Agregar o completar una entrada semanal
 
-Edita `api/data/entries.php`: busca el arreglo con el `number` de la
+Edita `api/data/entries.php`: busca el arreglo con el `week` de la
 semana y completa `title`, `theme`, `reflexion`, `aprendizaje`,
 `cuestionamiento`, `aplicacion` y, si aplica, `evidencia`. No hace falta
 tocar ningún otro archivo — el estado de la entrada (próxima /
 disponible / completada) y el progreso general del diario se calculan
 automáticamente en cuanto `reflexion` deja de estar vacío.
 
-Si el calendario real del curso difiere de las fechas generadas
-(lunes consecutivos desde el inicio del ciclo), ajusta el campo `date`
-de la entrada correspondiente en el mismo archivo.
+Cada entrada tiene dos fechas distintas: `week_start` (el lunes en que
+arranca la semana académica) y `class_date` (el día real de la clase,
+los miércoles en este curso). El estado "disponible" se activa cuando
+`class_date` ya pasó. Si el calendario real del curso difiere de las
+fechas generadas, ajusta ambos campos de la entrada correspondiente en
+el mismo archivo.
 
 ## Actualizar los metadatos del curso
 
@@ -81,7 +85,7 @@ real).
 - Sin base de datos: todo el contenido vive en `api/data/*.php` y se
   versiona con Git. Cada actualización de contenido implica un nuevo
   despliegue.
-- Las fechas semanales se generan como lunes consecutivos desde el
-  inicio del ciclo definido en `api/data/course.php`; si el calendario
-  oficial del curso salta semanas de receso, ajusta las fechas
-  manualmente en `api/data/entries.php`.
+- Las fechas (`week_start`/`class_date`) se generaron como lunes/miércoles
+  consecutivos desde el inicio del ciclo definido en `api/data/course.php`;
+  si el calendario oficial del curso salta semanas de receso, ajusta las
+  fechas manualmente en `api/data/entries.php`.

@@ -19,12 +19,13 @@ return [
     // en el sitio, o complétalo con tu nombre cuando quieras que aparezca.
     'author'        => null,
 
-    // Fecha ISO (YYYY-MM-DD) de inicio de lecciones del ciclo y cantidad
-    // total de semanas lectivas. Estos dos valores controlan el cálculo
-    // automático de progreso, por lo que deben ajustarse al calendario
-    // oficial de la profesora si difiere del supuesto usado aquí
-    // (semanas lectivas consecutivas, sin descontar semanas de receso).
-    'semester_start' => '2026-08-03',
+    // Fecha ISO (YYYY-MM-DD) del lunes en que inicia la semana académica 1
+    // (no la fecha de la primera clase — ver api/data/entries.php, campo
+    // 'week_start' vs 'class_date') y cantidad total de semanas lectivas.
+    // Ajusta estos dos valores al calendario oficial si difiere del
+    // supuesto usado aquí (semanas lectivas consecutivas desde el lunes
+    // 10 de agosto de 2026, sin descontar semanas de receso).
+    'semester_start' => '2026-08-10',
     'total_weeks'    => 15,
 
     // Texto breve que explica el propósito del diario. Se usa en la

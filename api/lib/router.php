@@ -22,7 +22,7 @@ function resolve_route(string $requestUri): array
     }
 
     if (preg_match('#^/semana/(\d+)$#', $path, $matches)) {
-        return ['page' => 'week', 'params' => ['number' => (int) $matches[1]]];
+        return ['page' => 'week', 'params' => ['week' => (int) $matches[1]]];
     }
 
     return ['page' => 'not-found', 'params' => []];

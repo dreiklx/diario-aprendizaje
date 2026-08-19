@@ -23,7 +23,7 @@ function get_entries(): array
 
     if ($entries === null) {
         $entries = require __DIR__ . '/../data/entries.php';
-        usort($entries, fn ($a, $b) => $a['number'] <=> $b['number']);
+        usort($entries, fn ($a, $b) => $a['week'] <=> $b['week']);
     }
 
     return $entries;
@@ -32,10 +32,10 @@ function get_entries(): array
 /**
  * Una entrada por número de semana, o null si no existe.
  */
-function get_entry(int $number): ?array
+function get_entry(int $week): ?array
 {
     foreach (get_entries() as $entry) {
-        if ($entry['number'] === $number) {
+        if ($entry['week'] === $week) {
             return $entry;
         }
     }
@@ -46,8 +46,12 @@ function get_entry(int $number): ?array
 /**
  * Estado derivado de una entrada:
  * - completada: tiene contenido de reflexión.
- * - disponible: la fecha ya llegó pero aún no se ha escrito.
- * - proxima: la fecha todavía no llega.
+ * - disponible: la clase (class_date) ya ocurrió pero aún no se ha escrito.
+ * - proxima: la clase todavía no ocurre.
+ *
+ * Se compara contra class_date (el día real de la sesión), no contra
+ * week_start (el lunes en que arranca la semana académica) — hasta que
+ * no hay clase, no hay nada que reflexionar.
  */
 function entry_status(array $entry, ?string $today = null): string
 {
@@ -57,7 +61,7 @@ function entry_status(array $entry, ?string $today = null): string
         return STATUS_COMPLETADA;
     }
 
-    return is_on_or_before($entry['date'], $today) ? STATUS_DISPONIBLE : STATUS_PROXIMA;
+    return is_on_or_before($entry['class_date'], $today) ? STATUS_DISPONIBLE : STATUS_PROXIMA;
 }
 
 /**
@@ -100,8 +104,10 @@ function progress_stats(): array
 }
 
 /**
- * La semana "actual" del semestre: la última disponible/completada cuya
- * fecha ya llegó, o la primera si el curso aún no ha iniciado.
+ * La semana académica "actual" del semestre: la última cuyo lunes
+ * (week_start) ya llegó, o la primera si el curso aún no ha iniciado.
+ * Se basa en week_start (no en class_date) porque la semana ya está en
+ * curso desde el lunes, aunque la clase sea hasta el miércoles.
  */
 function current_week_number(?string $today = null): int
 {
@@ -109,8 +115,8 @@ function current_week_number(?string $today = null): int
     $current = 1;
 
     foreach (get_entries() as $entry) {
-        if (is_on_or_before($entry['date'], $today)) {
-            $current = $entry['number'];
+        if (is_on_or_before($entry['week_start'], $today)) {
+            $current = $entry['week'];
         }
     }
 

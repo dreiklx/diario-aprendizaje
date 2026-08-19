@@ -38,10 +38,10 @@ switch ($route['page']) {
         break;
 
     case 'week':
-        $number = $route['params']['number'];
-        $entry = get_entry($number);
+        $week = $route['params']['week'];
+        $entry = get_entry($week);
 
-        if ($entry === null || $number < 1 || $number > $course['total_weeks']) {
+        if ($entry === null || $week < 1 || $week > $course['total_weeks']) {
             http_response_code(404);
             render_page('not-found', [
                 'course' => $course,
@@ -52,7 +52,7 @@ switch ($route['page']) {
         }
 
         $entries = get_entries();
-        $index = array_search($number, array_column($entries, 'number'), true);
+        $index = array_search($week, array_column($entries, 'week'), true);
 
         render_page('week', [
             'course' => $course,
@@ -61,7 +61,7 @@ switch ($route['page']) {
             'entries' => $entries,
             'prevEntry' => $entries[$index - 1] ?? null,
             'nextEntry' => $entries[$index + 1] ?? null,
-            'pageTitle' => 'Semana ' . $number . ($entry['title'] ? ' — ' . $entry['title'] : ''),
+            'pageTitle' => 'Semana ' . $week . ($entry['title'] ? ' — ' . $entry['title'] : ''),
             'pageDescription' => $entry['theme'] ?? $course['description'],
         ]);
         break;

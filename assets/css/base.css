@@ -13,7 +13,6 @@
 }
 
 html {
-  color-scheme: light;
   -webkit-text-size-adjust: 100%;
   overflow-x: hidden;
 }
@@ -28,6 +27,26 @@ body {
   overflow-wrap: break-word;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  transition: background-color var(--duration-theme) var(--ease-standard),
+    color var(--duration-theme) var(--ease-standard);
+}
+
+/* Todo lo que pinta un color de tema cruza suavemente al alternar
+   claro/oscuro. Limitado a propiedades de color (no layout) a propósito. */
+a,
+.site-nav,
+.site-footer,
+.status-badge,
+.progress__track,
+.timeline__item,
+.timeline__node,
+.theme-toggle,
+.week__section--quote,
+.week__empty,
+code {
+  transition: background-color var(--duration-theme) var(--ease-standard),
+    color var(--duration-theme) var(--ease-standard),
+    border-color var(--duration-theme) var(--ease-standard);
 }
 
 img,
@@ -109,7 +128,10 @@ code {
   top: -3rem;
   left: var(--space-4);
   z-index: 100;
-  background: var(--color-accent-ink);
+  /* Color fijo a propósito (no tokens de tema): es un overlay aislado
+     que nunca se mezcla con el fondo de la página, así que no necesita
+     adaptarse entre claro/oscuro — solo necesita contraste garantizado. */
+  background: #14263f;
   color: #fff;
   padding: var(--space-2) var(--space-4);
   border-radius: var(--radius-sm);
@@ -120,8 +142,52 @@ code {
   top: var(--space-4);
 }
 
+/* — Scrollbar (navegadores basados en WebKit/Blink) — */
+::-webkit-scrollbar {
+  width: 12px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-bg);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border-strong);
+  border-radius: var(--radius-full);
+  border: 3px solid var(--color-bg);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-faint);
+}
+
+html {
+  scrollbar-color: var(--color-border-strong) var(--color-bg);
+}
+
+/* — Revelado progresivo (hero, secciones, timeline) —
+   Sin JavaScript, .js nunca se agrega y .reveal se queda visible
+   siempre: degradación segura, ver assets/js/main.js. */
+.js .reveal {
+  opacity: 0;
+  transform: translateY(14px);
+  transition: opacity var(--duration-slow) var(--ease-out),
+    transform var(--duration-slow) var(--ease-out);
+}
+
+.js .reveal.is-visible {
+  opacity: 1;
+  transform: none;
+}
+
 /* — Movimiento reducido — */
 @media (prefers-reduced-motion: reduce) {
+  .js .reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+
   *,
   *::before,
   *::after {

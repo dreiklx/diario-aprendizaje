@@ -69,3 +69,62 @@ function is_on_or_before(string $isoDate, string $today): bool
 {
     return $isoDate <= $today;
 }
+
+/**
+ * Abreviatura de mes en mayúsculas ("AGO", "SEP"...) — usada en el
+ * tratamiento editorial de fechas del timeline y la cabecera de semana.
+ */
+function format_month_abbr(int $month): string
+{
+    return mb_strtoupper(mb_substr(MESES_ES[$month], 0, 3));
+}
+
+/**
+ * Rango de una semana académica completa (lunes a domingo) a partir de
+ * su fecha de inicio, p. ej. "10 — 16 AGO 2026" o, si cruza de mes,
+ * "31 AGO — 6 SEP 2026".
+ */
+function format_week_range(string $weekStart): string
+{
+    $start = new DateTime($weekStart);
+    $end = (clone $start)->modify('+6 days');
+
+    $startMonth = (int) $start->format('n');
+    $endMonth = (int) $end->format('n');
+
+    if ($startMonth === $endMonth) {
+        return sprintf(
+            '%d — %d %s %s',
+            (int) $start->format('j'),
+            (int) $end->format('j'),
+            format_month_abbr($endMonth),
+            $end->format('Y')
+        );
+    }
+
+    return sprintf(
+        '%d %s — %d %s %s',
+        (int) $start->format('j'),
+        format_month_abbr($startMonth),
+        (int) $end->format('j'),
+        format_month_abbr($endMonth),
+        $end->format('Y')
+    );
+}
+
+/**
+ * Fecha de clase en formato corto con día de la semana, p. ej.
+ * "Miércoles 12 AGO" — usada junto al rango de semana para distinguir
+ * cuándo empieza la semana académica de cuándo es la sesión del curso.
+ */
+function format_class_short(string $classDate): string
+{
+    $date = new DateTime($classDate);
+
+    return sprintf(
+        '%s %d %s',
+        ucfirst(format_weekday($classDate)),
+        (int) $date->format('j'),
+        format_month_abbr((int) $date->format('n'))
+    );
+}

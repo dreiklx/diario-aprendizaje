@@ -8,21 +8,25 @@
  */
 ?>
 <ol class="timeline">
-<?php foreach ($entries as $entry):
+<?php foreach ($entries as $i => $entry):
     $status = entry_status($entry);
-    $isCurrent = $entry['number'] === $currentWeek;
+    $isCurrent = $entry['week'] === $currentWeek;
+    $delay = min($i * 50, 400);
 ?>
-  <li class="timeline__item timeline__item--<?= e($status) ?><?= $isCurrent ? ' timeline__item--current' : '' ?>">
-    <a class="timeline__link" href="/semana/<?= (int) $entry['number'] ?>">
+  <li class="timeline__item timeline__item--<?= e($status) ?><?= $isCurrent ? ' timeline__item--current' : '' ?> reveal" style="transition-delay: <?= $delay ?>ms">
+    <a class="timeline__link" href="/semana/<?= (int) $entry['week'] ?>">
       <span class="timeline__node" aria-hidden="true"></span>
-      <span class="timeline__number">Semana <?= (int) $entry['number'] ?></span>
-      <span class="timeline__title">
-        <?= $entry['title'] ? e($entry['title']) : '<span class="timeline__placeholder">Reflexión pendiente</span>' ?>
+      <span class="timeline__index" aria-hidden="true"><?= sprintf('%02d', $entry['week']) ?></span>
+      <span class="timeline__body">
+        <span class="timeline__dates">
+          <span class="timeline__range"><?= e(format_week_range($entry['week_start'])) ?></span>
+          <span class="timeline__class">Clase · <?= e(format_class_short($entry['class_date'])) ?></span>
+        </span>
+        <span class="timeline__title">
+          <?= $entry['title'] ? e($entry['title']) : '<span class="timeline__placeholder">Reflexión pendiente</span>' ?>
+        </span>
       </span>
-      <span class="timeline__meta">
-        <span class="timeline__date"><?= e(format_date_short($entry['date'])) ?></span>
-        <?= render_partial('partials/status-badge', ['status' => $status]) ?>
-      </span>
+      <?= render_partial('partials/status-badge', ['status' => $status]) ?>
     </a>
   </li>
 <?php endforeach; ?>

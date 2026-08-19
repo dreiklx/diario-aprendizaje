@@ -25,8 +25,8 @@
 
   <section class="course-page__section">
     <h2>Cómo leer el diario</h2>
-    <p>El diario se organiza en <?= (int) $course['total_weeks'] ?> entradas semanales, una por cada semana lectiva del ciclo. Cada entrada documenta la reflexión de la sesión, el aprendizaje principal, una pregunta que queda abierta y su aplicación a la realidad nacional costarricense.</p>
-    <p>Las entradas se distinguen por su estado: <strong>completada</strong> cuando ya tiene reflexión escrita, <strong>disponible</strong> cuando la fecha de la sesión ya pasó pero aún no se ha escrito, y <strong>próxima</strong> cuando corresponde a una semana futura del ciclo.</p>
+    <p>El diario se organiza en <?= (int) $course['total_weeks'] ?> entradas semanales, una por cada semana lectiva del ciclo. La semana académica arranca el lunes, pero la clase es el miércoles — cada entrada distingue ambas fechas y documenta lo que me llevo de la sesión, lo que espero desarrollar, una pregunta que queda abierta y, cuando aplica, su conexión con la realidad nacional.</p>
+    <p>Las entradas se distinguen por su estado: <strong>completada</strong> cuando ya tiene reflexión escrita, <strong>disponible</strong> cuando la clase ya ocurrió pero aún no se ha escrito, y <strong>próxima</strong> cuando corresponde a una semana futura del ciclo.</p>
     <?= render_partial('partials/progress', ['progress' => $progress]) ?>
   </section>
 
