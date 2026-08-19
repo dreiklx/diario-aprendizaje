@@ -68,7 +68,11 @@ function set_editor_cookie(string $token): void
 {
     setcookie(EDITOR_COOKIE, $token, [
         'expires' => time() + EDITOR_SESSION_TTL,
-        'path' => '/editar',
+        // Antes restringida a /editar: alcanzaba porque nada fuera de esa
+        // ruta miraba la sesión. El link discreto de "Editar comentario"
+        // en /semana/N necesita saber si hay sesión activa en una ruta
+        // pública, así que la cookie tiene que llegar a todo el sitio.
+        'path' => '/',
         'secure' => is_https_request(),
         'httponly' => true,
         'samesite' => 'Strict',
@@ -79,7 +83,7 @@ function clear_editor_cookie(): void
 {
     setcookie(EDITOR_COOKIE, '', [
         'expires' => time() - 3600,
-        'path' => '/editar',
+        'path' => '/',
         'secure' => is_https_request(),
         'httponly' => true,
         'samesite' => 'Strict',

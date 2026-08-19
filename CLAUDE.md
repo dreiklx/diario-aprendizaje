@@ -178,6 +178,10 @@ caracteres), `BLOCK_LIST_ITEMS_MAX` (30 ítems). Un bloque sin contenido
 (texto vacío, sin URL válida) se descarta silenciosamente al guardar —
 no llega a persistirse un bloque vacío.
 
+Cada entrada tiene además un campo `teacher_comment` (`?string`, texto
+simple con saltos de línea, no bloques) — es la retroalimentación de la
+profesora, un flujo separado y más simple. Ver sección 14-ter.
+
 ### Semana académica vs. día de clase — dos fechas, no una
 
 Cada entrada tiene **dos** fechas distintas, a propósito:
@@ -631,10 +635,11 @@ seguido con un commit real a `master` para que vuelvan a coincidir.
    un `filter: invert()` ni overrides sueltos — cualquier color nuevo se
    declara en los tres bloques (`:root`, `prefers-color-scheme`,
    `[data-theme="dark"]`).
-8. El editor privado (sección 14) solo puede modificar título, tema y
-   bloques de una entrada en `api/data/entries.php`, nunca otro archivo.
-   La contraseña vive solo como hash (`EDITOR_PASSWORD_HASH`), nunca en
-   texto plano en ningún archivo ni commit. El dominio de producción
+8. El editor privado (sección 14) solo puede modificar título, tema,
+   bloques y el comentario de la profesora (sección 14-ter) de una
+   entrada en `api/data/entries.php`, nunca otro archivo. La contraseña
+   vive solo como hash (`EDITOR_PASSWORD_HASH`), nunca en texto plano en
+   ningún archivo ni commit. El dominio de producción
    (`diario-aprendizaje.vercel.app`) no debe cambiar nunca — conectar
    Git a este mismo proyecto es seguro; crear un proyecto nuevo no lo es.
 9. El contenido de una entrada es una lista de `blocks` tipados
@@ -650,6 +655,13 @@ seguido con un commit real a `master` para que vuelvan a coincidir.
     (pedido explícito). Son visibles para cualquier visitante, pero no
     son la barrera de seguridad: la contraseña sigue siendo la única
     forma real de editar algo.
+11. El link "+ Agregar comentario"/"Editar comentario" (sección 14-ter)
+    es la única excepción a la regla anterior: solo se renderiza si
+    `is_editor_authenticated()` ya es verdadero en esa misma petición a
+    `/semana/N` (pedido explícito — no debe invitar a un visitante
+    cualquiera a intentar comentar). Por eso la cookie de sesión pasó de
+    `path=/editar` a `path=/` (sección 14-ter) — sin eso, la página
+    pública nunca podría ver si había sesión activa.
 
 ## 14. Editor privado (`/editar`)
 
@@ -961,3 +973,63 @@ redirige a ese `next` en vez de siempre a la lista de semanas —
 `sanitize_editor_next_path()` en `auth.php` solo acepta rutas propias
 de `/editar` (regex `^/editar(/semana/\d+)?$`), nunca una URL externa
 (protección básica contra open redirect).
+
+## 14-ter. Comentarios de la profesora
+
+Retroalimentación editorial de la profesora sobre la reflexión de una
+semana — explícitamente **no** un sistema de comentarios estilo redes
+sociales: sin usuarios, sin likes, sin respuestas, sin comentarios
+públicos de visitantes. Un solo campo de texto por entrada, editado por
+la misma (y única) persona que edita las reflexiones.
+
+**Modelo de datos:** `'teacher_comment' => null` (o un string) en cada
+entrada de `api/data/entries.php`, junto a `blocks`. Texto simple con
+saltos de línea (`\n`), nunca bloques — el editor es un solo
+`<textarea>`, no el editor de bloques de la sección 14-bis.
+`php_nullable_multiline()` en `entries_editor.php` serializa el campo
+(`null` si está vacío, comilla doble multilínea si no) — mismo patrón
+que `php_nullable_scalar()`, adaptado para texto con saltos de línea.
+
+**Dónde aparece:** en `/semana/N`, debajo de `.week__body`, **solo**
+cuando la semana tiene reflexión publicada (`$hasContent`, es decir
+estado `completada`) — nunca en semanas `disponible`/`próxima`. Sin
+comentario todavía, se muestra "Sin retroalimentación todavía." (mismo
+párrafo, clase `--empty`) — nunca como error o estado vacío alarmante.
+
+**Edición — mismo sistema de autenticación que el resto, un flujo más
+simple:** ruta `/editar/semana/N/comentario`
+(`api/lib/router.php` → `handle_editor_comment*()` en
+`editor_actions.php`). Reutiliza exactamente `require_editor_auth()`,
+`editor_csrf_token()`/`verify_editor_csrf()`, `github_get_entries_file()`
+y `github_update_entries_file()` (mismo control de concurrencia por
+`sha`) — nunca un segundo sistema de auth. La única diferencia con el
+editor de reflexión es qué campo se cambia: `apply_teacher_comment_edit()`
+solo toca `teacher_comment`, nunca título/tema/bloques. Plantilla
+`editor-comment.php`: un `<textarea>` (máx. 4000 caracteres,
+`maxlength` en el HTML + `mb_strlen()` server-side), reutiliza las
+clases `.editor-field`/`.editor-button`/`.editor-message` ya existentes
+— no se agregó CSS nuevo para el formulario.
+
+**Visibilidad del link de editar — distinta a la de "Editar reflexión"
+a propósito:** el link "+ Agregar comentario"/"Editar comentario" solo
+se renderiza si `is_editor_authenticated()` es verdadero al renderizar
+`/semana/N` (`api/index.php`, caso `week`, pasa `isEditorAuthenticated`
+a la plantilla). A diferencia del link de reflexión (visible siempre,
+redirige a login si hace falta), este nunca aparece para un visitante
+sin sesión — pedido explícito, para no invitar a cualquiera a intentar
+comentar. Esto requirió ensanchar el `path` de la cookie de sesión de
+`/editar` a `/` en `set_editor_cookie()`/`clear_editor_cookie()`
+(`auth.php`) — antes la cookie nunca llegaba a `/semana/N`. Sigue
+`HttpOnly`, `Secure` (si HTTPS) y `SameSite=Strict`, sin cambios ahí.
+
+**Visual — deliberadamente neutro, no una alerta ni el azul de acento**
+(`.week__feedback*` en `assets/css/components.css`): fondo hundido
+(`--color-surface-sunken`, el mismo tono que `.week__empty`) + borde
+izquierdo en `--color-border-strong` (gris neutro, no el azul de
+`.inline-highlight`/enlaces, para que no se lea como "otro bloque de la
+reflexión" ni como estado de la semana). Label pequeño en mayúsculas
+con un punto hueco como marca editorial; el texto del comentario usa la
+tipográfica serif en cursiva (`--font-display`) para diferenciarse de
+los párrafos de la reflexión (sans/serif normal) como "otra voz" sin
+competir en tamaño ni peso. Todo son tokens existentes — se adapta a
+modo claro/oscuro sin reglas nuevas por tema.

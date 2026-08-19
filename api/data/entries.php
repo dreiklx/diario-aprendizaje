@@ -39,6 +39,9 @@
  * theme      ?string Tema o eje temático de la sesión. Null si no se define.
  * blocks     array   Contenido de la reflexión, en bloques tipados (ver
  *                     api/lib/blocks.php, BLOCK_TYPES). [] si aún no hay nada.
+ * teacher_comment ?string Retroalimentación de la profesora sobre esta
+ *                     entrada (texto simple, no bloques). Null si todavía
+ *                     no hay comentario. Se edita en /editar/semana/N/comentario.
  *
  * BLOQUES
  * -------
@@ -75,6 +78,7 @@ return [
             ['type' => 'heading', 'text' => "Una pregunta que me queda"],
             ['type' => 'quote', 'text' => "Lo que me quedó dando vueltas es hasta qué punto un espacio como este realmente nos va a hacer ver las cosas distinto, o si al final uno termina reforzando lo mismo que ya pensaba porque es más cómodo. Ojalá sea lo primero."],
         ],
+        'teacher_comment' => null,
     ],
     [
         'week' => 2,
@@ -83,6 +87,7 @@ return [
         'title' => null,
         'theme' => null,
         'blocks' => [],
+        'teacher_comment' => null,
     ],
     [
         'week' => 3,
@@ -91,6 +96,7 @@ return [
         'title' => null,
         'theme' => null,
         'blocks' => [],
+        'teacher_comment' => null,
     ],
     [
         'week' => 4,
@@ -99,6 +105,7 @@ return [
         'title' => null,
         'theme' => null,
         'blocks' => [],
+        'teacher_comment' => null,
     ],
     [
         'week' => 5,
@@ -107,6 +114,7 @@ return [
         'title' => null,
         'theme' => null,
         'blocks' => [],
+        'teacher_comment' => null,
     ],
     [
         'week' => 6,
@@ -115,6 +123,7 @@ return [
         'title' => null,
         'theme' => null,
         'blocks' => [],
+        'teacher_comment' => null,
     ],
     [
         'week' => 7,
@@ -123,6 +132,7 @@ return [
         'title' => null,
         'theme' => null,
         'blocks' => [],
+        'teacher_comment' => null,
     ],
     [
         'week' => 8,
@@ -131,6 +141,7 @@ return [
         'title' => null,
         'theme' => null,
         'blocks' => [],
+        'teacher_comment' => null,
     ],
     [
         'week' => 9,
@@ -139,6 +150,7 @@ return [
         'title' => null,
         'theme' => null,
         'blocks' => [],
+        'teacher_comment' => null,
     ],
     [
         'week' => 10,
@@ -147,6 +159,7 @@ return [
         'title' => null,
         'theme' => null,
         'blocks' => [],
+        'teacher_comment' => null,
     ],
     [
         'week' => 11,
@@ -155,6 +168,7 @@ return [
         'title' => null,
         'theme' => null,
         'blocks' => [],
+        'teacher_comment' => null,
     ],
     [
         'week' => 12,
@@ -163,6 +177,7 @@ return [
         'title' => null,
         'theme' => null,
         'blocks' => [],
+        'teacher_comment' => null,
     ],
     [
         'week' => 13,
@@ -171,6 +186,7 @@ return [
         'title' => null,
         'theme' => null,
         'blocks' => [],
+        'teacher_comment' => null,
     ],
     [
         'week' => 14,
@@ -179,6 +195,7 @@ return [
         'title' => null,
         'theme' => null,
         'blocks' => [],
+        'teacher_comment' => null,
     ],
     [
         'week' => 15,
@@ -187,5 +204,6 @@ return [
         'title' => null,
         'theme' => null,
         'blocks' => [],
+        'teacher_comment' => null,
     ],
 ];

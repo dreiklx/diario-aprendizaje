@@ -64,6 +64,7 @@ switch ($route['page']) {
             'nextEntry' => $entries[$index + 1] ?? null,
             'pageTitle' => 'Semana ' . $week . ($entry['title'] ? ' — ' . $entry['title'] : ''),
             'pageDescription' => $entry['theme'] ?? $course['description'],
+            'isEditorAuthenticated' => is_editor_authenticated(),
         ]);
         break;
 
@@ -77,6 +78,10 @@ switch ($route['page']) {
 
     case 'editor-week':
         handle_editor_week($course, $route['params']['week']);
+        break;
+
+    case 'editor-comment':
+        handle_editor_comment($course, $route['params']['week']);
         break;
 
     default:

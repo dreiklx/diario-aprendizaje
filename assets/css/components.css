@@ -470,6 +470,58 @@ ol.block-list {
   border-radius: var(--radius-sm);
 }
 
+/* — Retroalimentación de la profesora —
+   Deliberadamente neutra (ni el azul de acento ni los colores de
+   estado): es una voz externa a la reflexión, no otro estado del
+   diario ni una alerta. Fondo hundido + borde izquierdo bastan para
+   diferenciarla sin competir con el contenido principal. */
+.week__feedback {
+  margin-top: var(--space-8);
+  padding: var(--space-5) var(--space-6);
+  background: var(--color-surface-sunken);
+  border-left: 3px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+}
+
+.week__feedback-label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.week__feedback-label::before {
+  content: '';
+  width: 0.5rem;
+  height: 0.5rem;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 1.5px solid var(--color-border-strong);
+}
+
+.week__feedback-text {
+  margin-top: var(--space-3);
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: var(--text-base);
+  line-height: var(--leading-relaxed);
+  color: var(--color-text);
+}
+
+.week__feedback-text--empty {
+  font-family: var(--font-body);
+  color: var(--color-text-faint);
+}
+
+.week__feedback-edit {
+  display: inline-block;
+  margin-top: var(--space-4);
+}
+
 .week__empty {
   padding: var(--space-6);
   background: var(--color-surface-sunken);

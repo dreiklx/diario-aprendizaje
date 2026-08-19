@@ -75,6 +75,16 @@ function php_nullable_scalar(?string $value): string
     return php_single_quote($value);
 }
 
+/** Igual que php_nullable_scalar() pero para texto que puede tener saltos de línea. */
+function php_nullable_multiline(?string $value): string
+{
+    if ($value === null || trim($value) === '') {
+        return 'null';
+    }
+
+    return php_double_quote_multiline($value);
+}
+
 /** Serializa un único bloque como literal de arreglo PHP, en una línea. */
 function format_block_literal(array $block): string
 {
@@ -140,6 +150,7 @@ function format_entries_body(array $entries): string
         $out .= "        'title' => " . php_nullable_scalar($entry['title'] ?? null) . ",\n";
         $out .= "        'theme' => " . php_nullable_scalar($entry['theme'] ?? null) . ",\n";
         $out .= "        'blocks' => " . format_blocks_literal((array) ($entry['blocks'] ?? [])) . ",\n";
+        $out .= "        'teacher_comment' => " . php_nullable_multiline($entry['teacher_comment'] ?? null) . ",\n";
         $out .= "    ],\n";
     }
 
@@ -169,6 +180,25 @@ function apply_entry_edit(array $entries, int $week, string $title, string $them
         $entries[$i]['title'] = normalize_editor_text($title);
         $entries[$i]['theme'] = normalize_editor_text($theme);
         $entries[$i]['blocks'] = $sanitizedBlocks;
+        break;
+    }
+
+    return $entries;
+}
+
+/**
+ * Aplica solo el comentario de la profesora a la entrada $week — nunca
+ * toca título/tema/bloques. Es un flujo de edición separado del de la
+ * reflexión (mismo archivo, mismo mecanismo de guardado, otro campo).
+ */
+function apply_teacher_comment_edit(array $entries, int $week, string $comment): array
+{
+    foreach ($entries as $i => $entry) {
+        if ((int) $entry['week'] !== $week) {
+            continue;
+        }
+
+        $entries[$i]['teacher_comment'] = normalize_editor_text($comment);
         break;
     }
 

@@ -5,9 +5,11 @@
  * @var string $status
  * @var array $prevEntry
  * @var array $nextEntry
+ * @var bool $isEditorAuthenticated
  */
 $week = (int) $entry['week'];
 $hasContent = $status === STATUS_COMPLETADA;
+$comment = trim((string) ($entry['teacher_comment'] ?? ''));
 ?>
 <article class="week">
   <nav class="week__breadcrumb" aria-label="Miga de pan">
@@ -39,6 +41,20 @@ $hasContent = $status === STATUS_COMPLETADA;
     <div class="week__body">
       <?= render_blocks_html($entry['blocks']) ?>
     </div>
+
+    <section class="week__feedback" aria-labelledby="feedback-heading">
+      <p class="week__feedback-label" id="feedback-heading">Comentarios de la profesora</p>
+      <?php if ($comment !== ''): ?>
+        <p class="week__feedback-text"><?= nl2br(e($comment)) ?></p>
+      <?php else: ?>
+        <p class="week__feedback-text week__feedback-text--empty">Sin retroalimentación todavía.</p>
+      <?php endif; ?>
+      <?php if (!empty($isEditorAuthenticated)): ?>
+        <a class="week__edit-link week__feedback-edit" href="/editar/semana/<?= $week ?>/comentario">
+          <?= $comment !== '' ? 'Editar comentario' : '+ Agregar comentario' ?>
+        </a>
+      <?php endif; ?>
+    </section>
   <?php elseif ($status === STATUS_DISPONIBLE): ?>
     <div class="week__empty">
       <p>Esta semana ya tuvo clase, pero la reflexión todavía no se ha escrito.</p>
