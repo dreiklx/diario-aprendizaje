@@ -178,9 +178,9 @@ caracteres), `BLOCK_LIST_ITEMS_MAX` (30 ítems). Un bloque sin contenido
 (texto vacío, sin URL válida) se descarta silenciosamente al guardar —
 no llega a persistirse un bloque vacío.
 
-Cada entrada tiene además un campo `teacher_comment` (`?string`, texto
-simple con saltos de línea, no bloques) — es la retroalimentación de la
-profesora, un flujo separado y más simple. Ver sección 14-ter.
+Cada entrada tiene además un campo `comments` (array): el foro público
+de esa reflexión, un modelo completamente aparte del de bloques (texto
+plano, sin marcado, publicado sin login). Ver sección 14-ter.
 
 ### Semana académica vs. día de clase — dos fechas, no una
 
@@ -635,13 +635,14 @@ seguido con un commit real a `master` para que vuelvan a coincidir.
    un `filter: invert()` ni overrides sueltos — cualquier color nuevo se
    declara en los tres bloques (`:root`, `prefers-color-scheme`,
    `[data-theme="dark"]`).
-8. El editor privado (sección 14) solo puede modificar título, tema,
-   bloques y el comentario de la profesora (sección 14-ter) de una
-   entrada en `api/data/entries.php`, nunca otro archivo. La contraseña
-   vive solo como hash (`EDITOR_PASSWORD_HASH`), nunca en texto plano en
-   ningún archivo ni commit. El dominio de producción
-   (`diario-aprendizaje.vercel.app`) no debe cambiar nunca — conectar
-   Git a este mismo proyecto es seguro; crear un proyecto nuevo no lo es.
+8. El editor privado (sección 14) solo puede modificar título, tema y
+   bloques de una entrada en `api/data/entries.php`, nunca otro archivo
+   — la única excepción es eliminar (nunca editar) un comentario ajeno
+   del foro (sección 14-ter, moderación). La contraseña vive solo como
+   hash (`EDITOR_PASSWORD_HASH`), nunca en texto plano en ningún archivo
+   ni commit. El dominio de producción (`diario-aprendizaje.vercel.app`)
+   no debe cambiar nunca — conectar Git a este mismo proyecto es seguro;
+   crear un proyecto nuevo no lo es.
 9. El contenido de una entrada es una lista de `blocks` tipados
    (sección 4-bis), no cuatro campos fijos. Cualquier tipo de bloque
    nuevo se renderiza SIEMPRE escapando primero y agregando etiquetas
@@ -655,12 +656,12 @@ seguido con un commit real a `master` para que vuelvan a coincidir.
     (pedido explícito). Son visibles para cualquier visitante, pero no
     son la barrera de seguridad: la contraseña sigue siendo la única
     forma real de editar algo.
-11. El link "+ Agregar comentario"/"Editar comentario" (sección 14-ter)
-    es la única excepción a la regla anterior: solo se renderiza si
-    `is_editor_authenticated()` ya es verdadero en esa misma petición a
-    `/semana/N` (pedido explícito — no debe invitar a un visitante
-    cualquiera a intentar comentar). Por eso la cookie de sesión pasó de
-    `path=/editar` a `path=/` (sección 14-ter) — sin eso, la página
+11. El foro de comentarios (sección 14-ter) es público y no requiere
+    login para publicar — a propósito, es lo que pidió el usuario. El
+    link "Eliminar" junto a cada comentario es la única acción que sí
+    exige sesión: solo se renderiza si `is_editor_authenticated()` ya es
+    verdadero en esa misma petición a `/semana/N`. Por eso la cookie de
+    sesión tiene `path=/` (antes era `/editar`) — sin eso, la página
     pública nunca podría ver si había sesión activa.
 
 ## 14. Editor privado (`/editar`)
@@ -974,62 +975,143 @@ redirige a ese `next` en vez de siempre a la lista de semanas —
 de `/editar` (regex `^/editar(/semana/\d+)?$`), nunca una URL externa
 (protección básica contra open redirect).
 
-## 14-ter. Comentarios de la profesora
+## 14-ter. Comentarios (foro público)
 
-Retroalimentación editorial de la profesora sobre la reflexión de una
-semana — explícitamente **no** un sistema de comentarios estilo redes
-sociales: sin usuarios, sin likes, sin respuestas, sin comentarios
-públicos de visitantes. Un solo campo de texto por entrada, editado por
-la misma (y única) persona que edita las reflexiones.
+**Reemplaza por completo el modelo anterior de `teacher_comment`** (un
+único campo privado editado solo por Derek). Ese campo se retiró
+limpiamente: en el momento del cambio estaba en `null` en las 15
+entradas tanto en local como en producción (verificado con un GET a la
+API de contenidos de GitHub antes de tocar nada), así que no hubo
+contenido real que migrar — se eliminó el campo, la función que lo
+serializaba (`php_nullable_multiline()`) y todo el flujo de edición
+(`/editar/semana/N/comentario`, `handle_editor_comment*()`,
+`editor-comment.php`) en el mismo cambio, sin dejar rastros.
 
-**Modelo de datos:** `'teacher_comment' => null` (o un string) en cada
-entrada de `api/data/entries.php`, junto a `blocks`. Texto simple con
-saltos de línea (`\n`), nunca bloques — el editor es un solo
-`<textarea>`, no el editor de bloques de la sección 14-bis.
-`php_nullable_multiline()` en `entries_editor.php` serializa el campo
-(`null` si está vacío, comilla doble multilínea si no) — mismo patrón
-que `php_nullable_scalar()`, adaptado para texto con saltos de línea.
+El concepto actual es un **foro académico pequeño**, no una
+retroalimentación privada de un solo autor: cualquier visitante
+(profesora, compañeros, el propio Derek) puede publicar un comentario
+en una reflexión, con nombre + texto, sin necesitar cuenta ni sesión.
+Explícitamente **no** es una red social: sin likes, sin respuestas
+anidadas, sin reacciones, sin avatares — ver "Visual" más abajo.
+
+**Modelo de datos:** `'comments' => []` en cada entrada de
+`api/data/entries.php`, junto a `blocks`. Cada comentario es
+`['id' => string, 'name' => string, 'content' => string, 'created_at' => string]`
+— `id` es aleatorio (`bin2hex(random_bytes(8))`, `new_comment_id()` en
+`api/lib/comments.php`), `created_at` es un timestamp ISO 8601 con
+offset generado **siempre en el servidor** (nunca lo manda el
+navegador) en hora de Costa Rica (`America/Costa_Rica`, UTC-6 todo el
+año, sin horario de verano — ver `now_costa_rica()`/`comment_timestamp_now()`).
+Los comentarios se guardan en orden cronológico ascendente (el más
+antiguo primero, el nuevo se agrega al final) — así se lee como una
+conversación. El contenido es **texto plano**, sin el marcado mínimo de
+los bloques (nada de `**negrita**`/`==destacado==` aquí) — se escapa
+con `e()` y solo se aplica `nl2br()` para los saltos de línea
+(`render_comment_content_html()`), el mismo patrón de "escapar primero,
+transformar después" que ya usa `render_inline_markup()` en
+`blocks.php`, solo que sin ninguna sustitución de marcado.
+
+**Serialización:** `format_comment_literal()`/`format_comments_literal()`
+en `entries_editor.php` (mismo patrón que `format_block_literal()`
+para los bloques — nunca `var_export()`). `append_comment_to_entry()`
+agrega un comentario al final de la lista de una entrada;
+`remove_comment_from_entry()` (moderación) quita uno por `id`. Ninguna
+de las dos toca título/tema/bloques ni otros comentarios.
 
 **Dónde aparece:** en `/semana/N`, debajo de `.week__body`, **solo**
-cuando la semana tiene reflexión publicada (`$hasContent`, es decir
-estado `completada`) — nunca en semanas `disponible`/`próxima`. Sin
-comentario todavía, se muestra "Sin retroalimentación todavía." (mismo
-párrafo, clase `--empty`) — nunca como error o estado vacío alarmante.
+cuando la semana tiene reflexión publicada (`$hasContent`, estado
+`completada`) — nunca en semanas `disponible`/`próxima` (`$loadComments`
+en `index.php` controla tanto esto como si se carga `comments.js`).
+Encabezado "Comentarios" + contador (`· N`, oculto si N es 0). Sin
+comentarios todavía: "Sé la primera persona en comentar." — nunca un
+estado vacío que parezca error.
 
-**Edición — mismo sistema de autenticación que el resto, un flujo más
-simple:** ruta `/editar/semana/N/comentario`
-(`api/lib/router.php` → `handle_editor_comment*()` en
-`editor_actions.php`). Reutiliza exactamente `require_editor_auth()`,
-`editor_csrf_token()`/`verify_editor_csrf()`, `github_get_entries_file()`
-y `github_update_entries_file()` (mismo control de concurrencia por
-`sha`) — nunca un segundo sistema de auth. La única diferencia con el
-editor de reflexión es qué campo se cambia: `apply_teacher_comment_edit()`
-solo toca `teacher_comment`, nunca título/tema/bloques. Plantilla
-`editor-comment.php`: un `<textarea>` (máx. 4000 caracteres,
-`maxlength` en el HTML + `mb_strlen()` server-side), reutiliza las
-clases `.editor-field`/`.editor-button`/`.editor-message` ya existentes
-— no se agregó CSS nuevo para el formulario.
+**Publicar un comentario — sin login, flujo real a GitHub:**
+formulario en la propia página, `POST /semana/N` (mismo `case 'week'`
+de `index.php`, no una ruta aparte) →
+`handle_comment_submit()` en `api/lib/comment_actions.php`. A propósito
+**no** vive en `editor_actions.php`: es una acción pública sin
+autenticación, mientras que `editor_actions.php` es exclusivamente la
+lógica del editor privado (no mezclar ambas más de lo necesario).
+Comparte con el editor privado el cliente de GitHub y el serializador
+de `entries.php`, nunca la autenticación.
 
-**Visibilidad del link de editar — distinta a la de "Editar reflexión"
-a propósito:** el link "+ Agregar comentario"/"Editar comentario" solo
-se renderiza si `is_editor_authenticated()` es verdadero al renderizar
-`/semana/N` (`api/index.php`, caso `week`, pasa `isEditorAuthenticated`
-a la plantilla). A diferencia del link de reflexión (visible siempre,
-redirige a login si hace falta), este nunca aparece para un visitante
-sin sesión — pedido explícito, para no invitar a cualquiera a intentar
-comentar. Esto requirió ensanchar el `path` de la cookie de sesión de
-`/editar` a `/` en `set_editor_cookie()`/`clear_editor_cookie()`
-(`auth.php`) — antes la cookie nunca llegaba a `/semana/N`. Sigue
-`HttpOnly`, `Secure` (si HTTPS) y `SameSite=Strict`, sin cambios ahí.
+Validación server-side (nunca confía en lo que mandó el navegador):
+nombre y comentario son obligatorios; límites duros `COMMENT_NAME_MAX`
+(80 caracteres) y `COMMENT_TEXT_MAX` (2000 caracteres) — **rechaza**
+con un mensaje claro si se exceden, nunca trunca en silencio (mismo
+criterio que el editor de reflexión con título/tema). El nombre se
+recorta a una sola línea (`sanitize_comment_name()`); el contenido
+preserva saltos de línea (`sanitize_comment_content()`).
 
-**Visual — deliberadamente neutro, no una alerta ni el azul de acento**
-(`.week__feedback*` en `assets/css/components.css`): fondo hundido
-(`--color-surface-sunken`, el mismo tono que `.week__empty`) + borde
-izquierdo en `--color-border-strong` (gris neutro, no el azul de
-`.inline-highlight`/enlaces, para que no se lea como "otro bloque de la
-reflexión" ni como estado de la semana). Label pequeño en mayúsculas
-con un punto hueco como marca editorial; el texto del comentario usa la
-tipográfica serif en cursiva (`--font-display`) para diferenciarse de
-los párrafos de la reflexión (sans/serif normal) como "otra voz" sin
-competir en tamaño ni peso. Todo son tokens existentes — se adapta a
+**Concurrencia — a propósito distinta de la del editor privado:** un
+comentario es un *append* puro, no una edición de contenido existente.
+Si el `sha` cambió entre el GET y el PUT (alguien más comentó al mismo
+tiempo), `handle_comment_submit()` **reintenta automáticamente** hasta
+3 veces con el `sha` más reciente, en vez de mostrarle un error de
+conflicto al visitante — dos comentarios concurrentes de personas
+distintas no se pisan entre sí, así que reintentar es seguro. Esto es
+lo opuesto a `handle_editor_week_save()` (edición de reflexión), donde
+un 409 sí se muestra tal cual porque sobrescribir en silencio el
+trabajo de otra pestaña sí sería destructivo. `COMMENT_MAX_COUNT_PER_ENTRY`
+(300) pone un techo generoso al tamaño del foro de una sola semana.
+
+**Anti-abuso — medidas razonables, sin almacenamiento aparte**
+(`api/lib/comments.php`):
+- **Honeypot** (`comments_hp`): campo de texto fuera de pantalla
+  (`position: absolute; left: -9999px`, nunca `display:none`, que
+  algunos bots detectan) que ningún visitante real llena; si llega con
+  contenido, se rechaza en silencio con un mensaje genérico.
+- **Token de formulario firmado** (`issue_comment_form_token()` /
+  `verify_comment_form_token()`): HMAC-SHA256 del momento en que se
+  sirvió el formulario, con la misma clave `SESSION_SECRET` que ya usa
+  el editor privado (`editor_session_secret()` en `auth.php`) — reutiliza
+  la clave, pero es un mecanismo completamente aparte del login, no
+  CSRF de sesión. Rechaza envíos más rápidos que
+  `COMMENT_FORM_TOKEN_MIN_AGE` (2s, típico de un bot) o más viejos que
+  `COMMENT_FORM_TOKEN_MAX_AGE` (6h).
+- **Cooldown entre publicaciones** (`COMMENT_COOLDOWN_SECONDS`, 20s):
+  cookie firmada (`last_comment_at`, HMAC igual que arriba) puesta tras
+  cada publicación exitosa — sin estado en el servidor. No es a prueba
+  de balas (borrar la cookie lo evita), pero es fricción razonable sin
+  necesitar un almacén de intentos.
+- No hay CAPTCHA — no se consideró necesario para el volumen esperado
+  (un curso pequeño).
+
+**Moderación — la única forma de tocar un comentario ajeno:** por
+defecto cualquiera puede crear y leer, nadie puede editar ni eliminar.
+La única excepción es Derek desde el editor privado: un link discreto
+"Eliminar" junto a cada comentario, visible **solo** si
+`is_editor_authenticated()` (igual que el link de editar reflexión, sin
+sesión no se ve). `POST /editar/semana/N/comentarios/eliminar` →
+`handle_comment_delete()` en `editor_actions.php` — reutiliza
+`require_editor_auth()` y `verify_editor_csrf()` tal cual, nunca un
+segundo sistema de auth. Solo elimina, nunca edita: ni siquiera Derek
+puede cambiar lo que alguien más escribió, solo quitarlo.
+
+**Confirmación honesta de publicación (mismo principio que el editor de
+bloques):** la respuesta al POST ya renderiza la página con el
+comentario recién agregado (viene de los datos frescos que se acaban
+de traer de GitHub, no del bundle desplegado) — así que el propio autor
+lo ve de inmediato. Pero eso no significa que el sitio público ya lo
+sirva: `assets/js/comments.js` (se carga solo cuando `$loadComments` es
+verdadero, igual que el criterio para mostrar la sección) sondea
+`/semana/N` cada 3s buscando `data-comment-id="<id nuevo>"` en el HTML
+— igual que `pollForPublication()` en `editor.js` — hasta confirmar
+"Comentario publicado ✓" o hasta ~25 intentos. Sin JS, el formulario
+funciona igual (POST normal, PRG con ancla `#comentarios`); simplemente
+no hay confirmación progresiva de que ya se ve para *otros* visitantes.
+
+**Visual — foro académico/editorial, no red social**
+(`.comments*` en `assets/css/components.css`): encabezado "Comentarios
+· N" en mayúsculas pequeñas (mismo tratamiento que `.block-heading`),
+lista de comentarios separados por líneas horizontales simples (como
+una conversación transcrita, no tarjetas), nombre en sans-serif
+semibold + fecha discreta en `--color-text-faint`, cuerpo en el tipo de
+letra normal del sitio. Sin avatares, sin likes, sin botones de
+compartir, sin emojis automáticos. El formulario ("Participar en la
+conversación", label en cursiva `--font-display`) reutiliza el mismo
+lenguaje visual de campos que `editor.css` pero con clases propias
+(`.comments__field`, etc.) porque `editor.css` solo se carga en
+`/editar` — el foro es público. Todo son tokens existentes, se adapta a
 modo claro/oscuro sin reglas nuevas por tema.

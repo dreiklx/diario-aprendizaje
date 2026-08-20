@@ -37,8 +37,8 @@ function resolve_route(string $requestUri): array
         return ['page' => 'editor-week', 'params' => ['week' => (int) $matches[1]]];
     }
 
-    if (preg_match('#^/editar/semana/(\d+)/comentario$#', $path, $matches)) {
-        return ['page' => 'editor-comment', 'params' => ['week' => (int) $matches[1]]];
+    if (preg_match('#^/editar/semana/(\d+)/comentarios/eliminar$#', $path, $matches)) {
+        return ['page' => 'editor-comment-delete', 'params' => ['week' => (int) $matches[1]]];
     }
 
     return ['page' => 'not-found', 'params' => []];

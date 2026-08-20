@@ -60,6 +60,9 @@ if ($private) {
 </main>
 <?= render_partial('partials/footer', ['course' => $course]) ?>
 <script src="<?= asset_url('js/main.js') ?>" defer></script>
+<?php if (!empty($loadComments)): ?>
+<script src="<?= asset_url('js/comments.js') ?>" defer></script>
+<?php endif; ?>
 <?php if ($private): ?>
 <script src="<?= asset_url('js/editor.js') ?>" defer></script>
 <?php endif; ?>

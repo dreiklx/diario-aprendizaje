@@ -6,10 +6,12 @@
  * @var array $prevEntry
  * @var array $nextEntry
  * @var bool $isEditorAuthenticated
+ * @var array{name:string, content:string, errors:array<int,string>, success:bool, marker:?string} $commentForm
  */
 $week = (int) $entry['week'];
 $hasContent = $status === STATUS_COMPLETADA;
-$comment = trim((string) ($entry['teacher_comment'] ?? ''));
+$comments = entry_comments($entry);
+$commentCount = count($comments);
 ?>
 <article class="week">
   <nav class="week__breadcrumb" aria-label="Miga de pan">
@@ -42,19 +44,71 @@ $comment = trim((string) ($entry['teacher_comment'] ?? ''));
       <?= render_blocks_html($entry['blocks']) ?>
     </div>
 
-    <section class="week__feedback" aria-labelledby="feedback-heading">
-      <p class="week__feedback-label" id="feedback-heading">Comentarios de la profesora</p>
-      <?php if ($comment !== ''): ?>
-        <p class="week__feedback-text"><?= nl2br(e($comment)) ?></p>
+    <section class="comments" id="comentarios" aria-labelledby="comments-heading">
+      <header class="comments__header">
+        <h2 class="comments__title" id="comments-heading">Comentarios<?= $commentCount > 0 ? ' · ' . $commentCount : '' ?></h2>
+      </header>
+
+      <?php if ($commentCount === 0): ?>
+        <p class="comments__empty">Sé la primera persona en comentar.</p>
       <?php else: ?>
-        <p class="week__feedback-text week__feedback-text--empty">Sin retroalimentación todavía.</p>
+        <ol class="comments__list">
+          <?php foreach ($comments as $comment): ?>
+            <li class="comments__item" data-comment-id="<?= e($comment['id']) ?>">
+              <div class="comments__meta">
+                <span class="comments__name"><?= e($comment['name']) ?></span>
+                <time class="comments__date" datetime="<?= e($comment['created_at']) ?>"><?= e(format_comment_timestamp($comment['created_at'])) ?></time>
+              </div>
+              <p class="comments__text"><?= render_comment_content_html($comment['content']) ?></p>
+              <?php if (!empty($isEditorAuthenticated)): ?>
+                <form class="comments__delete" method="post" action="/editar/semana/<?= $week ?>/comentarios/eliminar">
+                  <input type="hidden" name="csrf" value="<?= e(editor_csrf_token()) ?>">
+                  <input type="hidden" name="comment_id" value="<?= e($comment['id']) ?>">
+                  <button type="submit" class="comments__delete-btn">Eliminar</button>
+                </form>
+              <?php endif; ?>
+            </li>
+          <?php endforeach; ?>
+        </ol>
       <?php endif; ?>
-      <?php if (!empty($isEditorAuthenticated)): ?>
-        <a class="week__edit-link week__feedback-edit" href="/editar/semana/<?= $week ?>/comentario">
-          <?= $comment !== '' ? 'Editar comentario' : '+ Agregar comentario' ?>
-        </a>
-      <?php endif; ?>
+
+      <div class="comments__form-wrap">
+        <p class="comments__form-label">Participar en la conversación</p>
+
+        <?php if (!empty($commentForm['errors'])): ?>
+          <div class="comments__message comments__message--error">
+            <?php foreach ($commentForm['errors'] as $error): ?>
+              <p><?= e($error) ?></p>
+            <?php endforeach; ?>
+          </div>
+        <?php elseif (!empty($commentForm['success'])): ?>
+          <p class="comments__message comments__message--success" id="comment-status">Comentario guardado. Actualizando el diario…</p>
+        <?php endif; ?>
+
+        <form class="comments__form" method="post" action="/semana/<?= $week ?>#comentarios" id="comment-form">
+          <input type="text" name="comments_hp" class="comments__honeypot" tabindex="-1" autocomplete="off" aria-hidden="true">
+          <input type="hidden" name="form_token" value="<?= e(issue_comment_form_token()) ?>">
+
+          <label class="comments__field">
+            <span>Nombre</span>
+            <input type="text" name="name" maxlength="<?= COMMENT_NAME_MAX ?>" value="<?= e($commentForm['name']) ?>" required>
+          </label>
+
+          <label class="comments__field">
+            <span>Comentario</span>
+            <textarea name="content" maxlength="<?= COMMENT_TEXT_MAX ?>" rows="4" required><?= e($commentForm['content']) ?></textarea>
+          </label>
+
+          <button type="submit" class="comments__submit" id="comment-submit">Publicar comentario</button>
+        </form>
+      </div>
     </section>
+
+    <script type="application/json" id="comments-initial-data"><?= json_encode([
+        'week' => $week,
+        'success' => (bool) $commentForm['success'],
+        'marker' => $commentForm['marker'],
+    ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?></script>
   <?php elseif ($status === STATUS_DISPONIBLE): ?>
     <div class="week__empty">
       <p>Esta semana ya tuvo clase, pero la reflexión todavía no se ha escrito.</p>

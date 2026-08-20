@@ -13,6 +13,7 @@ require_once __DIR__ . '/lib/entries.php';
 require_once __DIR__ . '/lib/render.php';
 require_once __DIR__ . '/lib/router.php';
 require_once __DIR__ . '/lib/editor_actions.php';
+require_once __DIR__ . '/lib/comment_actions.php';
 
 $course = require __DIR__ . '/data/course.php';
 $route = resolve_route($_SERVER['REQUEST_URI'] ?? '/');
@@ -52,19 +53,37 @@ switch ($route['page']) {
             break;
         }
 
+        $commentForm = ['name' => '', 'content' => '', 'errors' => [], 'success' => false, 'marker' => null];
+
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+            $result = handle_comment_submit($week, $entry);
+            $commentForm['name'] = $result['name'];
+            $commentForm['content'] = $result['content'];
+            $commentForm['errors'] = $result['errors'];
+
+            if ($result['success']) {
+                $entry = $result['entry'];
+                $commentForm['success'] = true;
+                $commentForm['marker'] = $result['marker'];
+            }
+        }
+
         $entries = get_entries();
         $index = array_search($week, array_column($entries, 'week'), true);
+        $status = entry_status($entry);
 
         render_page('week', [
             'course' => $course,
             'entry' => $entry,
-            'status' => entry_status($entry),
+            'status' => $status,
             'entries' => $entries,
             'prevEntry' => $entries[$index - 1] ?? null,
             'nextEntry' => $entries[$index + 1] ?? null,
             'pageTitle' => 'Semana ' . $week . ($entry['title'] ? ' — ' . $entry['title'] : ''),
             'pageDescription' => $entry['theme'] ?? $course['description'],
             'isEditorAuthenticated' => is_editor_authenticated(),
+            'commentForm' => $commentForm,
+            'loadComments' => $status === STATUS_COMPLETADA,
         ]);
         break;
 
@@ -80,8 +99,8 @@ switch ($route['page']) {
         handle_editor_week($course, $route['params']['week']);
         break;
 
-    case 'editor-comment':
-        handle_editor_comment($course, $route['params']['week']);
+    case 'editor-comment-delete':
+        handle_comment_delete($course, $route['params']['week']);
         break;
 
     default:

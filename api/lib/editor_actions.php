@@ -11,6 +11,7 @@
 require_once __DIR__ . '/auth.php';
 require_once __DIR__ . '/github.php';
 require_once __DIR__ . '/entries_editor.php';
+require_once __DIR__ . '/comments.php';
 
 function handle_editor_home(array $course): void
 {
@@ -221,140 +222,41 @@ function handle_editor_week_save(array $course, int $week): void
 }
 
 /**
- * Comentario de la profesora — flujo separado y más simple que el de la
- * reflexión (un solo textarea), pero reutiliza exactamente la misma
- * autenticación, CSRF, cliente de GitHub y control de concurrencia por
- * sha. Nunca toca título/tema/bloques de la entrada.
+ * Moderación del foro público: elimina un comentario por id. Reutiliza
+ * exactamente la autenticación y el CSRF del editor privado — el
+ * contenido que borra es público, pero borrarlo es una acción privada
+ * (ver CLAUDE.md, sección 15). No hay edición de comentarios, solo
+ * eliminación: nadie más que Derek puede tocar el foro, y ni él puede
+ * cambiar lo que alguien más escribió, solo quitarlo.
  */
-function handle_editor_comment(array $course, int $week): void
+function handle_comment_delete(array $course, int $week): void
 {
     require_editor_auth();
 
-    if ($week < 1 || $week > (int) $course['total_weeks']) {
-        header('Location: /editar', true, 303);
+    if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST' || !verify_editor_csrf((string) ($_POST['csrf'] ?? ''))) {
+        header('Location: /semana/' . $week, true, 303);
 
         return;
     }
 
-    if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
-        handle_editor_comment_save($course, $week);
+    $commentId = (string) ($_POST['comment_id'] ?? '');
 
-        return;
-    }
+    if ($commentId !== '') {
+        try {
+            $file = github_get_entries_file();
+            $parsed = parse_entries_source($file['content']);
 
-    handle_editor_comment_form($course, $week, null, null, null);
-}
-
-function handle_editor_comment_form(array $course, int $week, ?string $success, ?string $error, ?string $commentValue): void
-{
-    try {
-        $file = github_get_entries_file();
-        $parsed = parse_entries_source($file['content']);
-        $entry = find_entry_by_week($parsed['entries'], $week);
-    } catch (GitHubApiException|EntriesParseException $e) {
-        render_page('editor-comment', [
-            'course' => $course,
-            'pageTitle' => 'Editor · Comentario semana ' . $week,
-            'pageDescription' => null,
-            'private' => true,
-            'week' => $week,
-            'entry' => ['week' => $week, 'week_start' => date('Y-m-d'), 'class_date' => date('Y-m-d'), 'title' => null],
-            'sha' => '',
-            'csrf' => editor_csrf_token(),
-            'successMessage' => null,
-            'errorMessage' => 'No se pudo cargar la entrada desde GitHub: ' . $e->getMessage(),
-            'commentValue' => '',
-        ]);
-
-        return;
-    }
-
-    if ($entry === null) {
-        header('Location: /editar', true, 303);
-
-        return;
-    }
-
-    render_page('editor-comment', [
-        'course' => $course,
-        'pageTitle' => 'Editor · Comentario semana ' . $week,
-        'pageDescription' => null,
-        'private' => true,
-        'week' => $week,
-        'entry' => $entry,
-        'sha' => $file['sha'],
-        'csrf' => editor_csrf_token(),
-        'successMessage' => $success,
-        'errorMessage' => $error,
-        'commentValue' => $commentValue ?? ((string) ($entry['teacher_comment'] ?? '')),
-    ]);
-}
-
-function handle_editor_comment_save(array $course, int $week): void
-{
-    if (!verify_editor_csrf((string) ($_POST['csrf'] ?? ''))) {
-        handle_editor_comment_form($course, $week, null, 'La sesión expiró o la petición no es válida. Volvé a intentarlo.', null);
-
-        return;
-    }
-
-    $comment = (string) ($_POST['teacher_comment'] ?? '');
-
-    if (mb_strlen($comment) > 4000) {
-        handle_editor_comment_form($course, $week, null, 'El comentario es demasiado largo.', $comment);
-
-        return;
-    }
-
-    $sha = (string) ($_POST['sha'] ?? '');
-
-    try {
-        $file = github_get_entries_file();
-        $parsed = parse_entries_source($file['content']);
-
-        if (find_entry_by_week($parsed['entries'], $week) === null) {
-            handle_editor_comment_form($course, $week, null, 'Esa semana ya no existe en el archivo.', $comment);
-
-            return;
+            if (find_entry_by_week($parsed['entries'], $week) !== null) {
+                $updatedEntries = remove_comment_from_entry($parsed['entries'], $week, $commentId);
+                $newSource = $parsed['preamble'] . format_entries_body($updatedEntries);
+                github_update_entries_file($newSource, $file['sha'], 'Elimina un comentario — semana ' . $week);
+            }
+        } catch (GitHubApiException|EntriesParseException $e) {
+            // No hay un formulario que volver a mostrar con el error: se
+            // vuelve simplemente a /semana/N. Si falló, el comentario
+            // sigue ahí y se puede reintentar.
         }
-
-        $updatedEntries = apply_teacher_comment_edit($parsed['entries'], $week, $comment);
-        $newSource = $parsed['preamble'] . format_entries_body($updatedEntries);
-
-        $result = github_update_entries_file(
-            $newSource,
-            $sha,
-            'Actualiza el comentario de la profesora — semana ' . $week
-        );
-    } catch (GitHubApiException|EntriesParseException $e) {
-        handle_editor_comment_form($course, $week, null, 'No se pudo guardar: ' . $e->getMessage(), $comment);
-
-        return;
     }
 
-    if ($result['conflict']) {
-        handle_editor_comment_form(
-            $course,
-            $week,
-            null,
-            'El comentario cambió en GitHub desde que abriste este formulario. Recargá la página y volvé a intentarlo.',
-            $comment
-        );
-
-        return;
-    }
-
-    if (!$result['ok']) {
-        handle_editor_comment_form($course, $week, null, 'GitHub rechazó el cambio (código ' . $result['status'] . ').', $comment);
-
-        return;
-    }
-
-    handle_editor_comment_form(
-        $course,
-        $week,
-        'Comentario guardado. Vercel está actualizando el sitio — en menos de un minuto debería verse en /semana/' . $week . '.',
-        null,
-        null
-    );
+    header('Location: /semana/' . $week, true, 303);
 }

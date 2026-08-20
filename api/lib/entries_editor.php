@@ -75,16 +75,6 @@ function php_nullable_scalar(?string $value): string
     return php_single_quote($value);
 }
 
-/** Igual que php_nullable_scalar() pero para texto que puede tener saltos de línea. */
-function php_nullable_multiline(?string $value): string
-{
-    if ($value === null || trim($value) === '') {
-        return 'null';
-    }
-
-    return php_double_quote_multiline($value);
-}
-
 /** Serializa un único bloque como literal de arreglo PHP, en una línea. */
 function format_block_literal(array $block): string
 {
@@ -137,6 +127,30 @@ function format_blocks_literal(array $blocks): string
     return $out . '        ]';
 }
 
+/** Serializa un único comentario como literal de arreglo PHP, en una línea. */
+function format_comment_literal(array $comment): string
+{
+    return "['id' => " . php_single_quote((string) $comment['id'])
+        . ", 'name' => " . php_double_quote_multiline((string) $comment['name'])
+        . ", 'content' => " . php_double_quote_multiline((string) $comment['content'])
+        . ", 'created_at' => " . php_single_quote((string) $comment['created_at']) . ']';
+}
+
+function format_comments_literal(array $comments): string
+{
+    if (empty($comments)) {
+        return '[]';
+    }
+
+    $out = "[\n";
+
+    foreach ($comments as $comment) {
+        $out .= '            ' . format_comment_literal($comment) . ",\n";
+    }
+
+    return $out . '        ]';
+}
+
 /** Reconstruye "return [ ... ];" completo a partir del arreglo de entradas. */
 function format_entries_body(array $entries): string
 {
@@ -150,7 +164,7 @@ function format_entries_body(array $entries): string
         $out .= "        'title' => " . php_nullable_scalar($entry['title'] ?? null) . ",\n";
         $out .= "        'theme' => " . php_nullable_scalar($entry['theme'] ?? null) . ",\n";
         $out .= "        'blocks' => " . format_blocks_literal((array) ($entry['blocks'] ?? [])) . ",\n";
-        $out .= "        'teacher_comment' => " . php_nullable_multiline($entry['teacher_comment'] ?? null) . ",\n";
+        $out .= "        'comments' => " . format_comments_literal((array) ($entry['comments'] ?? [])) . ",\n";
         $out .= "    ],\n";
     }
 
@@ -187,18 +201,40 @@ function apply_entry_edit(array $entries, int $week, string $title, string $them
 }
 
 /**
- * Aplica solo el comentario de la profesora a la entrada $week — nunca
- * toca título/tema/bloques. Es un flujo de edición separado del de la
- * reflexión (mismo archivo, mismo mecanismo de guardado, otro campo).
+ * Agrega un comentario nuevo al final del foro de la entrada $week —
+ * nunca toca título/tema/bloques ni los demás comentarios. Es un append
+ * puro: seguro de reintentar ante un 409 de concurrencia (ver
+ * api/lib/comment_actions.php).
  */
-function apply_teacher_comment_edit(array $entries, int $week, string $comment): array
+function append_comment_to_entry(array $entries, int $week, array $comment): array
 {
     foreach ($entries as $i => $entry) {
         if ((int) $entry['week'] !== $week) {
             continue;
         }
 
-        $entries[$i]['teacher_comment'] = normalize_editor_text($comment);
+        $comments = (array) ($entry['comments'] ?? []);
+        $comments[] = $comment;
+        $entries[$i]['comments'] = $comments;
+        break;
+    }
+
+    return $entries;
+}
+
+/** Moderación: elimina el comentario con ese id del foro de la entrada $week. */
+function remove_comment_from_entry(array $entries, int $week, string $commentId): array
+{
+    foreach ($entries as $i => $entry) {
+        if ((int) $entry['week'] !== $week) {
+            continue;
+        }
+
+        $comments = array_values(array_filter(
+            (array) ($entry['comments'] ?? []),
+            fn (array $c): bool => ($c['id'] ?? null) !== $commentId
+        ));
+        $entries[$i]['comments'] = $comments;
         break;
     }
 

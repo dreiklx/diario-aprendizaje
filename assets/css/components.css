@@ -470,56 +470,212 @@ ol.block-list {
   border-radius: var(--radius-sm);
 }
 
-/* — Retroalimentación de la profesora —
-   Deliberadamente neutra (ni el azul de acento ni los colores de
-   estado): es una voz externa a la reflexión, no otro estado del
-   diario ni una alerta. Fondo hundido + borde izquierdo bastan para
-   diferenciarla sin competir con el contenido principal. */
-.week__feedback {
-  margin-top: var(--space-8);
-  padding: var(--space-5) var(--space-6);
-  background: var(--color-surface-sunken);
-  border-left: 3px solid var(--color-border-strong);
-  border-radius: var(--radius-md);
+/* — Foro de comentarios —
+   Estética de foro académico/editorial, no de red social: sin
+   avatares, sin likes, sin reacciones. Divisores horizontales simples
+   entre comentarios (como una conversación transcrita), nombre en
+   sans-serif semibold, fecha discreta, sin nada que se pueda "dar
+   like" o "compartir". */
+.comments {
+  margin-top: var(--space-9);
+  padding-top: var(--space-7);
+  border-top: 1px solid var(--color-border);
 }
 
-.week__feedback-label {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  font-size: var(--text-xs);
+.comments__header {
+  margin-bottom: var(--space-6);
+}
+
+.comments__title {
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--color-text-muted);
 }
 
-.week__feedback-label::before {
-  content: '';
-  width: 0.5rem;
-  height: 0.5rem;
-  flex-shrink: 0;
-  border-radius: 50%;
-  border: 1.5px solid var(--color-border-strong);
+.comments__empty {
+  padding: var(--space-5) 0;
+  color: var(--color-text-faint);
+  font-style: italic;
+  border-top: 1px solid var(--color-border);
 }
 
-.week__feedback-text {
-  margin-top: var(--space-3);
-  font-family: var(--font-display);
-  font-style: italic;
-  font-size: var(--text-base);
-  line-height: var(--leading-relaxed);
+.comments__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.comments__item {
+  padding: var(--space-5) 0;
+  border-top: 1px solid var(--color-border);
+}
+
+.comments__item:last-child {
+  border-bottom: 1px solid var(--color-border);
+}
+
+.comments__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+}
+
+.comments__name {
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: var(--text-sm);
   color: var(--color-text);
 }
 
-.week__feedback-text--empty {
-  font-family: var(--font-body);
+.comments__date {
+  font-size: var(--text-xs);
   color: var(--color-text-faint);
 }
 
-.week__feedback-edit {
-  display: inline-block;
-  margin-top: var(--space-4);
+.comments__text {
+  line-height: var(--leading-relaxed);
+  color: var(--color-text);
+  overflow-wrap: break-word;
+}
+
+.comments__delete {
+  margin-top: var(--space-2);
+}
+
+.comments__delete-btn {
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  color: var(--color-text-faint);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+
+.comments__delete-btn:hover {
+  color: var(--color-available);
+}
+
+/* — Formulario para participar — */
+.comments__form-wrap {
+  margin-top: var(--space-7);
+  padding-top: var(--space-6);
+  border-top: 1px solid var(--color-border);
+}
+
+.comments__form-label {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: var(--text-lg);
+  color: var(--color-text);
+  margin-bottom: var(--space-4);
+}
+
+.comments__message {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-4);
+  font-size: var(--text-sm);
+  line-height: var(--leading-relaxed);
+}
+
+.comments__message p {
+  margin: 0;
+}
+
+.comments__message p + p {
+  margin-top: var(--space-1);
+}
+
+.comments__message--success {
+  background: var(--color-completed-soft);
+  color: var(--color-completed);
+}
+
+.comments__message--error {
+  background: var(--color-available-soft);
+  color: var(--color-available);
+}
+
+.comments__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.comments__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.comments__field span {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.comments__field input,
+.comments__field textarea {
+  width: 100%;
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1.5px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+}
+
+.comments__field textarea {
+  resize: vertical;
+  min-height: 6rem;
+}
+
+.comments__field input:focus,
+.comments__field textarea:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+/* Honeypot: fuera de pantalla, no display:none (algunos bots lo detectan). */
+.comments__honeypot {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+.comments__submit {
+  align-self: flex-start;
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-bg);
+  background: var(--color-accent);
+  border: none;
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-6);
+  cursor: pointer;
+}
+
+.comments__submit:hover {
+  opacity: 0.85;
+}
+
+.comments__submit:disabled {
+  opacity: 0.6;
+  cursor: default;
 }
 
 .week__empty {
