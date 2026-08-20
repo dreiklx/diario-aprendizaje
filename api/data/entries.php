@@ -80,7 +80,9 @@ return [
             ['type' => 'heading', 'text' => "Una pregunta que me queda"],
             ['type' => 'quote', 'text' => "Lo que me quedó dando vueltas es hasta qué punto un espacio como este realmente nos va a hacer ver las cosas distinto, o si al final uno termina reforzando lo mismo que ya pensaba porque es más cómodo. Ojalá sea lo primero."],
         ],
-        'comments' => [],
+        'comments' => [
+            ['id' => '71bcb50ac0e42713', 'name' => "Jhendry", 'content' => "Hola Dereck, \nViene a leer su diario. Primero está muy bonito y es interactivo.\nMuy buena reflexión. Me alegra que desde la primera clase ya estés cuestionando y relacionando los temas con nuestra realidad. Precisamente, uno de los retos del seminario será aprender a escuchar otras perspectivas, cuestionar nuestras propias ideas y construir criterios con base en el análisis.", 'created_at' => '2026-08-19T20:51:30-06:00'],
+        ],
     ],
     [
         'week' => 2,
