@@ -173,6 +173,7 @@ function handle_editor_week_save(array $course, int $week): void
     try {
         $file = github_get_entries_file();
         $parsed = parse_entries_source($file['content']);
+        assert_safe_to_reserialize($parsed['entries'], substr($file['content'], strlen($parsed['preamble'])));
 
         if (find_entry_by_week($parsed['entries'], $week) === null) {
             handle_editor_week_form($course, $week, null, 'Esa semana ya no existe en el archivo.', $formValues);
@@ -245,6 +246,7 @@ function handle_comment_delete(array $course, int $week): void
         try {
             $file = github_get_entries_file();
             $parsed = parse_entries_source($file['content']);
+            assert_safe_to_reserialize($parsed['entries'], substr($file['content'], strlen($parsed['preamble'])));
 
             if (find_entry_by_week($parsed['entries'], $week) !== null) {
                 $updatedEntries = remove_comment_from_entry($parsed['entries'], $week, $commentId);

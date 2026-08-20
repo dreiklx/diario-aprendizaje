@@ -78,6 +78,7 @@ function handle_comment_submit(int $week, array $localEntry): array
         try {
             $file = github_get_entries_file();
             $parsed = parse_entries_source($file['content']);
+            assert_safe_to_reserialize($parsed['entries'], substr($file['content'], strlen($parsed['preamble'])));
             $freshEntry = find_entry_by_week($parsed['entries'], $week);
 
             if ($freshEntry === null) {

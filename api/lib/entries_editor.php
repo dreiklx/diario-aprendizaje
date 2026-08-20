@@ -241,6 +241,45 @@ function remove_comment_from_entry(array $entries, int $week, string $commentId)
     return $entries;
 }
 
+/**
+ * Cinturón de seguridad antes de cualquier PUT: reformatea las entradas
+ * TAL COMO SE LEYERON (sin la edición que se está por aplicar) y las
+ * compara byte a byte contra el cuerpo original recién leído de GitHub.
+ * Si difieren, algo corrompió el contenido entre la lectura y este punto
+ * y es más seguro abortar el guardado que escribir un archivo dañado
+ * encima del real. Se usa en los tres flujos que hacen GET+reformatear+
+ * PUT sobre el archivo completo (edición de reflexión, publicar
+ * comentario, moderación).
+ *
+ * Además detecta un caso específico y ya confirmado en producción: el
+ * endpoint GET de la API de contenidos de GitHub devolvió, para un sha
+ * verificado como correcto (confirmado comparando contra
+ * `git cat-file -p <sha>`, que sí trae el contenido real), un `content`
+ * en base64 que decodifica a texto con doble codificación UTF-8 (cada
+ * "Ã³"/"Ã©"/etc. en vez de "ó"/"é"). El texto reformateado por nuestro
+ * propio código es entonces internamente consistente (pasa la
+ * comparación de arriba) pero ya viene dañado desde la lectura — por
+ * eso se busca también la firma de esa doble codificación
+ * (secuencias "Ã\x83"/"Ã\x82") directamente en el cuerpo leído.
+ */
+function assert_safe_to_reserialize(array $parsedEntries, string $originalBody): void
+{
+    if (format_entries_body($parsedEntries) !== $originalBody) {
+        throw new EntriesParseException(
+            'El contenido leído de GitHub no se puede volver a serializar de forma idéntica ' .
+            '(posible problema de codificación) — se abortó el guardado para no dañar el archivo.'
+        );
+    }
+
+    if (preg_match('/\xC3\x83|\xC3\x82/', $originalBody) === 1) {
+        throw new EntriesParseException(
+            'El contenido leído de GitHub parece tener doble codificación UTF-8 ' .
+            '(ver CLAUDE.md, "Errores conocidos") — se abortó el guardado para no dañar el archivo. ' .
+            'Reintentá en unos segundos; si persiste, avisale a Derek.'
+        );
+    }
+}
+
 function find_entry_by_week(array $entries, int $week): ?array
 {
     foreach ($entries as $entry) {

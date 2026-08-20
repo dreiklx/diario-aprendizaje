@@ -80,9 +80,7 @@ return [
             ['type' => 'heading', 'text' => "Una pregunta que me queda"],
             ['type' => 'quote', 'text' => "Lo que me quedó dando vueltas es hasta qué punto un espacio como este realmente nos va a hacer ver las cosas distinto, o si al final uno termina reforzando lo mismo que ya pensaba porque es más cómodo. Ojalá sea lo primero."],
         ],
-        'comments' => [
-            ['id' => '33a51790fd1c5bf0', 'name' => "PRUEBA E2E (Claude)", 'content' => "Comentario de prueba real, se elimina en unos momentos con el link de moderaci�n.", 'created_at' => '2026-08-19T18:28:45-06:00'],
-        ],
+        'comments' => [],
     ],
     [
         'week' => 2,

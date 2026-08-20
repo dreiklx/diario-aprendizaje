@@ -505,6 +505,58 @@ seguido con un commit real a `master` para que vuelvan a coincidir.
 
 ## 11. Errores conocidos y notas de entorno
 
+- **⚠️ La API de contenidos de GitHub puede devolver, en el `content`
+  base64 del GET, una versión con doble codificación UTF-8 que NO
+  coincide con el blob real del repositorio.** Confirmado en una sesión
+  real: tras un guardado normal a través de la app (publicar un
+  comentario de prueba), el archivo en producción quedó con acentos
+  duplicados ("Ã³" en vez de "ó") en texto que ni siquiera se había
+  tocado en ese guardado. Se comparó a fondo:
+  `git cat-file -p <sha>` (el blob real, verificado por su propio hash)
+  traía el contenido **correcto**, mientras que
+  `GET /repos/.../contents/...` para ese mismo sha, decodificado, traía
+  un `content` **9352 vs. 9172 bytes**, con "Ã³"/"Ã©" donde debía haber
+  "ó"/"é" — reproducido de forma estable en múltiples pedidos con
+  cache-busting, no fue un problema transitorio de caché. La causa
+  exacta del lado de GitHub no se confirmó (no hay forma de depurar su
+  API desde acá); lo que sí se confirmó es que **no es un bug de este
+  proyecto** — `parse_entries_source()` + `format_entries_body()`
+  reproducen contenido limpio byte a byte cuando se les da contenido
+  limpio (probado localmente).
+  **Mitigación implementada:** `assert_safe_to_reserialize()` en
+  `entries_editor.php` — se llama justo después de cada
+  `github_get_entries_file()` + `parse_entries_source()` en los tres
+  flujos que reescriben el archivo completo (`handle_editor_week_save()`,
+  `handle_comment_submit()`, `handle_comment_delete()`). Comprueba (1)
+  que reformatear las entradas tal como se leyeron da el mismo texto
+  exacto que se acaba de leer (si no, algo ya las corrompió) y (2) busca
+  directamente la firma de esta doble codificación (bytes `\xC3\x83` /
+  `\xC3\x82`, que son "Ã"/"Â") en el cuerpo leído. Si cualquiera de los
+  dos falla, se aborta el guardado con `EntriesParseException` **antes**
+  de escribir nada — nunca se vuelve a intentar "arreglar" el contenido
+  corrupto ni se escribe encima. El incidente real se corrigió
+  restaurando `api/data/entries.php` con `git show <commit-limpio>:archivo
+  > archivo` (nunca `git checkout <commit> -- archivo`, ver el punto
+  siguiente) y empujando por `git push` normal — sin pasar por la API de
+  GitHub para la restauración, precisamente porque esa API fue la fuente
+  del problema. Si esto vuelve a pasar: no reintentes el guardado
+  repetidamente desde la app (el guard ya lo bloquea, pero confirmá con
+  `git cat-file -p <sha-reportado>` cuál es el contenido real antes de
+  asumir que algo se perdió) y restaurá siempre por `git push`, nunca
+  por un PUT manual a la API de contenidos.
+- **`git checkout <commit> -- archivo` puede convertir LF a CRLF en
+  Windows (`core.autocrlf`), rompiendo cualquier comparación byte a
+  byte contra el contenido original (p. ej. `assert_safe_to_reserialize()`
+  o el test de round-trip del serializador).** Pasó al intentar
+  restaurar `entries.php` durante el incidente de arriba: el archivo
+  "restaurado" tenía 211 CRLF donde debía tener 211 LF sueltos, y el
+  guard de reserialización lo rechazaba correctamente (¡funcionando como
+  debía, pero por una razón distinta a la que se esperaba!). `git show
+  <commit>:archivo > archivo` (redirección de shell) no aplica ningún
+  filtro de autocrlf y es la forma segura de extraer contenido exacto de
+  un commit para comparar o restaurar. Si necesitás confirmar
+  line-endings de un archivo, contá `\r\n` vs. `\n` sueltos directo en
+  PHP (`substr_count`) — no confíes en la vista previa de una diff tool.
 - **Chrome headless en Windows, ventanas <~500px de ancho:** en captura
   de pantalla vía `chrome --headless --screenshot --window-size=W,H`,
   con `W` por debajo de ~500px, el texto largo se corta a mitad de
@@ -1016,7 +1068,12 @@ en `entries_editor.php` (mismo patrón que `format_block_literal()`
 para los bloques — nunca `var_export()`). `append_comment_to_entry()`
 agrega un comentario al final de la lista de una entrada;
 `remove_comment_from_entry()` (moderación) quita uno por `id`. Ninguna
-de las dos toca título/tema/bloques ni otros comentarios.
+de las dos toca título/tema/bloques ni otros comentarios. Antes de
+aplicar cualquiera de las dos, `assert_safe_to_reserialize()` valida
+que el contenido recién leído de GitHub se pueda reformatear de forma
+idéntica — protección directa contra el incidente de doble codificación
+UTF-8 documentado en la sección 11, que se descubrió precisamente
+publicando el primer comentario de prueba de este feature.
 
 **Dónde aparece:** en `/semana/N`, debajo de `.week__body`, **solo**
 cuando la semana tiene reflexión publicada (`$hasContent`, estado
