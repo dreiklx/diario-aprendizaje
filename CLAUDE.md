@@ -130,6 +130,31 @@ Dos formas, el mismo archivo de destino:
 - El progreso (`X / 15`) se recalcula solo a partir de esa misma lista.
   Nunca escribas un porcentaje o conteo a mano en ninguna plantilla.
 
+### Estado actual de las entradas (última actualización: 2026-09-02)
+
+- **Semanas 1, 2 y 3** tienen reflexión real completa (`completada`).
+  Semana 1: "Bienvenida e introducción" (clase del 12 ago 2026).
+  Semana 2: "Desarrollo no es solo que crezca la economía" (clase del
+  19 ago 2026). Semana 3: "Una empresa no tiene que existir solo para
+  ganar plata" (clase del 26 ago 2026) — B Corps / Empresas B,
+  principios de Rochdale (1844) y cooperativismo, basada en dos videos
+  (Empresas B "las mejores empresas para el mundo", de Disruptivo /
+  Juan Del Cerro; y "La Historia de los Pioneros de Rochdale").
+  Agregada editando `api/data/entries.php` a mano siguiendo el proceso
+  de esta sección — sin tocar semanas anteriores ni las fechas de las
+  demás.
+- **Semanas 4–15** siguen con `title`/`theme` en `null` y `blocks` en
+  `[]`, pendientes de que ocurra cada clase.
+- Semana 1 ya tiene un comentario público real en el foro (sección
+  14-ter) — confirma que el flujo completo de comentarios funciona en
+  producción, no solo en pruebas locales.
+- Progreso mostrado en el sitio en esta fecha: **3 / 15**.
+- Esta subsección es un snapshot manual, no una fuente de verdad — si
+  se desincroniza de `api/data/entries.php`, el archivo manda. Actualízala
+  cada vez que se agregue o complete una entrada nueva, para que la
+  siguiente sesión no tenga que releer todo `entries.php` para saber en
+  qué semana va el curso.
+
 ## 4-bis. Modelo de contenido: bloques
 
 Hasta la iteración anterior cada entrada tenía cuatro campos de texto
@@ -642,6 +667,23 @@ seguido con un commit real a `master` para que vuelvan a coincidir.
   resolvió el badge + enlace "Editar" al lado del link principal del
   timeline (sección 14-bis, sin anidar un `<a>` dentro de otro `<a>`,
   que es HTML inválido).
+- **`git push origin master` puede ser rechazado ("fetch first") si
+  alguien publicó un comentario público (sección 14-ter) mientras
+  trabajabas en local sobre `api/data/entries.php`.** El foro de
+  comentarios escribe directo a GitHub por su propio camino
+  (`handle_comment_submit()`), así que el remoto puede avanzar sin que
+  lo sepas — no hace falta que nadie use `/editar`. Pasó en esta
+  sesión: se agregó la reflexión de la semana 2 a mano mientras alguien
+  comentaba en la semana 1 casi al mismo tiempo, y el push se rechazó.
+  La solución: `git fetch origin`, revisar el diff real del remoto
+  (`git diff master origin/master -- api/data/entries.php`) para
+  confirmar que no hay solapamiento, y recién ahí
+  `git pull --rebase origin master` (nunca `--force`, nunca resolver a
+  ciegas). En este caso el rebase se aplicó limpio porque los cambios
+  tocaban semanas distintas del mismo arreglo. Si algún día el
+  solapamiento cae en la misma semana, resolvé el conflicto a mano
+  comparando ambos lados — nunca elijas un lado del conflicto sin leer
+  el otro primero.
 - **⚠️ El campo oculto `#blocks-json` tiene que sincronizarse UNA VEZ al
   cargar la página, no solo cuando el usuario edita algo.** Bug real,
   encontrado probando el flujo completo contra producción: `editor.js`
