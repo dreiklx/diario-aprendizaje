@@ -100,7 +100,9 @@ return [
             ['type' => 'paragraph', 'text' => "Lo que más me llamó la atención de toda la clase fue el tema de las llamadas nuevas economías transformadoras: social, solidaria, del bien común, colaborativa, circular, verde. Me gustó porque no se sienten solo como teoría bonita, sino que aparecen como respuesta a problemas que no son solamente económicos, sino también sociales y ambientales. Esto conecta directo con lo que yo espero sacar de este curso, que es entender mejor el emprendimiento social: no solo montar un negocio, sino que un proyecto realmente sirva para algo y sea sostenible en el tiempo."],
             ['type' => 'paragraph', 'text' => "Aparte de la clase, esta semana también se habló bastante de las \"batallas de farmear aura\" que han estado pasando en la U, básicamente gente reuniéndose a hacer bailes raros con canciones de \"aura\". En lo personal no es algo que yo haría ni que me llame la atención, pero tampoco siento que le estén haciendo daño a nadie. Mientras la gente que participa no esté molestando o afectando a alguien más, que hagan lo suyo. Al final me hizo pensar un poco en que no todo tiene que coincidir con lo que uno personalmente haría para aceptar que está bien que otras personas lo hagan."],
         ],
-        'comments' => [],
+        'comments' => [
+            ['id' => '78aab3262221da17', 'name' => "prueba", 'content' => "123", 'created_at' => '2026-09-22T10:19:02-06:00'],
+        ],
     ],
     [
         'week' => 3,
